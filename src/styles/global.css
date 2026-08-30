@@ -1,0 +1,621 @@
+:root {
+  /* Default theme (Tokyo Night) — overridden at runtime by Omarchy theme */
+  --chelete-bg: #1a1b26;
+  --chelete-bg-secondary: #16161e;
+  --chelete-surface: #24283b;
+  --chelete-surface-hover: #2f3349;
+  --chelete-fg: #c0caf5;
+  --chelete-fg-muted: #737aa2;
+  --chelete-fg-subtle: #565f89;
+  --chelete-accent: #7aa2f7;
+  --chelete-success: #9ece6a;
+  --chelete-danger: #f7768e;
+  --chelete-warning: #e0af68;
+  --chelete-info: #7dcfff;
+  --chelete-border: #3b4261;
+  --chelete-radius: 4px;
+  --chelete-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --chelete-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--chelete-font);
+  background: var(--chelete-bg);
+  color: var(--chelete-fg);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: var(--chelete-bg-secondary);
+  border-right: 1px solid var(--chelete-border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+.sidebar.collapsed {
+  width: 52px;
+  min-width: 52px;
+  align-items: center;
+}
+
+.sidebar.collapsed .sidebar-logo .element-box {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar.collapsed .element-number {
+  font-size: 7px;
+  top: 2px;
+  left: 3px;
+}
+
+.sidebar.collapsed .element-symbol {
+  font-size: 16px;
+  margin-top: 3px;
+}
+
+.sidebar.collapsed .sidebar-link {
+  justify-content: center;
+  padding: 10px;
+}
+
+.sidebar.collapsed .sidebar-divider {
+  width: 24px;
+  margin: 8px auto;
+}
+
+.sidebar.collapsed nav {
+  width: 100%;
+}
+
+.sidebar-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 16px;
+  border-bottom: 1px solid var(--chelete-border);
+  margin-bottom: 8px;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  padding: 0 8px 16px;
+}
+
+.element-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--chelete-accent);
+  border-radius: 4px;
+  position: relative;
+}
+
+.element-number {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  font-size: 9px;
+  color: var(--chelete-fg-muted);
+  font-weight: 500;
+}
+
+.element-symbol {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--chelete-accent);
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.element-name {
+  font-size: 9px;
+  color: var(--chelete-fg-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: var(--chelete-fg-muted);
+  text-decoration: none;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-link:hover {
+  background: var(--chelete-surface);
+  color: var(--chelete-fg);
+}
+
+.sidebar-link.active {
+  background: var(--chelete-surface);
+  color: var(--chelete-accent);
+}
+
+.sidebar-link .shortcut {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--chelete-fg-subtle);
+  font-family: var(--chelete-mono);
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--chelete-border);
+  margin: 8px 16px;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--chelete-fg);
+}
+
+.page-subtitle {
+  font-size: 12px;
+  color: var(--chelete-fg-muted);
+  margin-top: 2px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  padding: 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.card-icon {
+  color: var(--chelete-fg-muted);
+}
+
+.card-icon.positive {
+  color: var(--chelete-success);
+}
+
+.card-icon.negative {
+  color: var(--chelete-danger);
+}
+
+.card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chelete-fg-muted);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--chelete-fg);
+}
+
+.card-value.positive {
+  color: var(--chelete-success);
+}
+
+.card-value.negative {
+  color: var(--chelete-danger);
+}
+
+.card-change {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--chelete-fg-muted);
+}
+
+.overview-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-select {
+  width: auto;
+  min-width: 140px;
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
+
+.table-container {
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead {
+  background: var(--chelete-surface);
+}
+
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chelete-fg-muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--chelete-border);
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--chelete-border);
+  color: var(--chelete-fg);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: var(--chelete-surface-hover);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: right;
+}
+
+.amount.income {
+  color: var(--chelete-success);
+}
+
+.amount.expense {
+  color: var(--chelete-danger);
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--chelete-font);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  background: var(--chelete-surface);
+  color: var(--chelete-fg);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.btn:hover {
+  background: var(--chelete-surface-hover);
+  border-color: var(--chelete-fg-subtle);
+}
+
+.btn-primary {
+  background: var(--chelete-accent);
+  color: var(--chelete-bg);
+  border-color: var(--chelete-accent);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-danger {
+  color: var(--chelete-danger);
+  border-color: var(--chelete-danger);
+}
+
+/* ── Forms ─────────────────────────────────────────────────── */
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chelete-fg-muted);
+  margin-bottom: 4px;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--chelete-font);
+  background: var(--chelete-bg);
+  color: var(--chelete-fg);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  outline: none;
+  transition: border-color 0.1s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737aa2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+.form-select option {
+  background: var(--chelete-bg);
+  color: var(--chelete-fg);
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: var(--chelete-accent);
+}
+
+.form-input::placeholder {
+  color: var(--chelete-fg-subtle);
+}
+
+/* ── Modal / Dialog ────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--chelete-bg-secondary);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  padding: 24px;
+  min-width: 380px;
+  max-width: 500px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--chelete-fg);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* ── Progress bar ──────────────────────────────────────────── */
+
+.progress-bar {
+  height: 6px;
+  background: var(--chelete-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.ok {
+  background: var(--chelete-accent);
+}
+
+.progress-fill.warning {
+  background: var(--chelete-warning);
+}
+
+.progress-fill.danger {
+  background: var(--chelete-danger);
+}
+
+/* ── Category tag ──────────────────────────────────────────── */
+
+.category-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: var(--chelete-radius);
+  background: var(--chelete-surface);
+  color: var(--chelete-fg-muted);
+  border: 1px solid var(--chelete-border);
+}
+
+/* ── Command palette ───────────────────────────────────────── */
+
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20vh;
+  z-index: 2000;
+}
+
+.command-palette {
+  background: var(--chelete-bg-secondary);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  width: 460px;
+  max-height: 360px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.command-palette input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-family: var(--chelete-font);
+  background: transparent;
+  color: var(--chelete-fg);
+  border: none;
+  border-bottom: 1px solid var(--chelete-border);
+  outline: none;
+}
+
+.command-palette-results {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.command-palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--chelete-fg);
+  transition: background 0.05s;
+}
+
+.command-palette-item:hover,
+.command-palette-item.selected {
+  background: var(--chelete-surface);
+}
+
+.command-palette-item .shortcut {
+  font-size: 11px;
+  color: var(--chelete-fg-subtle);
+  font-family: var(--chelete-mono);
+}
+
+/* ── Overview budget bars ──────────────────────────────────── */
+
+.budget-row {
+  margin-bottom: 12px;
+}
+
+.budget-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.budget-name {
+  color: var(--chelete-fg);
+}
+
+.budget-amounts {
+  color: var(--chelete-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--chelete-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--chelete-fg-subtle);
+}

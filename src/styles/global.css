@@ -399,6 +399,100 @@ body {
   color: var(--chelete-fg-subtle);
 }
 
+/* ── React Datepicker overrides ────────────────────────────── */
+
+.df-picker-wrap {
+  position: relative;
+}
+
+.df-picker-wrap .react-datepicker-wrapper {
+  display: block;
+}
+
+.df-picker-wrap .react-datepicker__input-container input {
+  height: 28px;
+  width: 130px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-family: var(--chelete-font);
+  color: var(--chelete-fg);
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.df-picker-wrap .react-datepicker__input-container input:focus {
+  border-color: var(--chelete-accent);
+}
+
+.df-picker-wrap .react-datepicker__input-container input::placeholder {
+  color: var(--chelete-fg-subtle);
+}
+
+.df-calendar {
+  font-family: var(--chelete-font) !important;
+  background: var(--chelete-bg) !important;
+  border: 1px solid var(--chelete-border) !important;
+  border-radius: var(--chelete-radius) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35) !important;
+  color: var(--chelete-fg) !important;
+  padding: 6px !important;
+}
+
+.react-datepicker__header {
+  background: var(--chelete-bg) !important;
+  border-bottom: 1px solid var(--chelete-border) !important;
+  padding-top: 8px !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: var(--chelete-fg-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+.react-datepicker__navigation {
+  top: 8px !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--chelete-fg-muted) !important;
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--chelete-fg) !important;
+}
+
+.df-day {
+  font-size: 12px !important;
+  color: var(--chelete-fg) !important;
+  border-radius: var(--chelete-radius) !important;
+  transition: background 0.1s !important;
+}
+
+.df-day:hover {
+  background: var(--chelete-surface-hover) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background: var(--chelete-accent) !important;
+  color: var(--chelete-bg) !important;
+}
+
+.react-datepicker__day--in-selecting-range,
+.react-datepicker__day--in-range {
+  background: color-mix(in srgb, var(--chelete-accent) 15%, transparent) !important;
+  color: var(--chelete-accent) !important;
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--chelete-fg-subtle) !important;
+}
+
 /* ── Toggle switch ─────────────────────────────────────────── */
 
 .toggle-switch {

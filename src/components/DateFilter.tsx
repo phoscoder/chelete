@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Calendar, Check, ArrowRight } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export type DateFilterValue =
   | "today"
@@ -56,6 +58,9 @@ export function DateFilter({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const startDate = customStart ? new Date(customStart) : null;
+  const endDate = customEnd ? new Date(customEnd) : null;
+
   return (
     <div className="df-row">
       <div className="df" ref={ref}>
@@ -83,13 +88,48 @@ export function DateFilter({
 
       {value === "custom" && (
         <div className="df-range">
-          <input type="date" className="df-date" value={customStart} onChange={(e) => onCustomStartChange(e.target.value)} />
+          <div className="df-picker-wrap">
+            <DatePicker
+              selected={startDate}
+              onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
+              selectsStart
+              startDate={startDate}
+              endDate={endDate}
+              placeholderText="Start date"
+              className="df-date"
+              calendarClassName="df-calendar"
+              dayClassName={() => "df-day"}
+              popperClassName="df-popper"
+              popperPlacement="bottom-start"
+              inline
+            />
+          </div>
           <ArrowRight size={11} strokeWidth={2} className="df-arrow" />
-          <input type="date" className="df-date" value={customEnd} onChange={(e) => onCustomEndChange(e.target.value)} />
+          <div className="df-picker-wrap">
+            <DatePicker
+              selected={endDate}
+              onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
+              selectsEnd
+              startDate={startDate}
+              endDate={endDate}
+              minDate={startDate || undefined}
+              placeholderText="End date"
+              className="df-date"
+              calendarClassName="df-calendar"
+              dayClassName={() => "df-day"}
+              popperClassName="df-popper"
+              popperPlacement="bottom-start"
+              inline
+            />
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+function formatDate(d: Date): string {
+  return d.toISOString().split("T")[0];
 }
 
 export function getDateRange(filter: DateFilterValue, customStart: string, customEnd: string): { start: string; end: string } {

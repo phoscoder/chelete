@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Run Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Rust backend
+        working-directory: src-tauri
+        run: cargo build --release
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create AppImage
+        working-directory: src-tauri/target/release
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp chelete AppDir/usr/bin/
+          cp ../../icons/128x128.png AppDir/usr/share/icons/hicolor/256x256/apps/chelete.png
+          cat > AppDir/chelete.desktop << EOF
+          [Desktop Entry]
+          Name=Chelete
+          Exec=chelete
+          Icon=chelete
+          Type=Application
+          Categories=Finance;
+          EOF
+          cat > AppDir/AppRun << 'APPEOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/chelete" "$@"
+          APPEOF
+          chmod +x AppDir/AppRun
+          chmod +x AppDir/usr/bin/chelete
+
+      - name: Package .deb
+        working-directory: src-tauri/target/release
+        run: |
+          DEB_DIR="chelete_${{ steps.version.outputs.VERSION }}_amd64"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+          cp chelete "$DEB_DIR/usr/bin/"
+          cp ../../icons/128x128.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/chelete.png"
+          cat > "$DEB_DIR/chelete.desktop" << EOF
+          [Desktop Entry]
+          Name=Chelete
+          Exec=chelete
+          Icon=chelete
+          Type=Application
+          Categories=Finance;
+          EOF
+          cat > "$DEB_DIR/DEBIAN/control" << EOF
+          Package: chelete
+          Version: ${{ steps.version.outputs.VERSION }}
+          Architecture: amd64
+          Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libappindicator3-1
+          Description: Personal finance tracker
+          EOF
+          dpkg-deb --build "$DEB_DIR"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            src-tauri/target/release/*.deb

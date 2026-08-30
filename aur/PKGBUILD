@@ -1,0 +1,27 @@
+# Maintainer: phoscoder <phoscoder@users.noreply.github.com>
+pkgname=chelete-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Personal finance tracker'
+arch=('x86_64')
+url='https://github.com/phoscoder/chelete'
+license=('MIT')
+depends=('gtk3' 'webkit2gtk' 'libappindicator-gtk3' 'librsvg')
+provides=('chelete')
+conflicts=('chelete')
+
+source=("${url}/releases/download/v${pkgver}/chelete_${pkgver}_amd64.deb")
+
+sha256sums=('SKIP')
+
+package() {
+    # Extract the deb package
+    bsdtar -xf "${srcdir}/chelete_${pkgver}_amd64.deb" -C "${pkgdir}"
+
+    # Move files to correct locations
+    mv "${pkgdir}/usr/bin/"* "${pkgdir}/usr/bin/" 2>/dev/null || true
+    mv "${pkgdir}/usr/share/"* "${pkgdir}/usr/share/" 2>/dev/null || true
+
+    # Remove the DEBIAN directory (not needed after extraction)
+    rm -rf "${pkgdir}/DEBIAN"
+}

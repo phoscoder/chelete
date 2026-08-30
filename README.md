@@ -31,6 +31,16 @@ npm run tauri dev
 npm run tauri build
 ```
 
+## Usage
+
+```bash
+make test              # Run all tests
+make release-patch     # Bump 0.1.0 -> 0.1.1 + git tag
+make release-minor     # Bump 0.1.0 -> 0.2.0 + git tag
+make release-major     # Bump 0.1.0 -> 1.0.0 + git tag
+git push origin main --tags  # Triggers GitHub Actions release
+```
+
 ## License
 
 [MIT](LICENSE)

@@ -59,8 +59,8 @@ export function DateFilter({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const startDate = customStart ? new Date(customStart) : null;
-  const endDate = customEnd ? new Date(customEnd) : null;
+  const startDate = customStart ? new Date(customStart + "T00:00:00") : null;
+  const endDate = customEnd ? new Date(customEnd + "T00:00:00") : null;
 
   return (
     <div className="df-row">
@@ -110,30 +110,38 @@ export function DateFilter({
             <div className="df-modal-body">
               <DatePicker
                 selected={startDate}
-                onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
+                onChange={(date: Date | null) => {
+                  if (date) onCustomStartChange(formatDate(date));
+                }}
                 selectsStart
                 startDate={startDate}
                 endDate={endDate}
                 inline
                 calendarClassName="df-calendar"
-                dayClassName={() => "df-day"}
-                showMonthDropdown
-                showYearDropdown
-                dropdownMode="select"
+                dayClassName={(d) => {
+                  if (!startDate || !endDate) return "df-day";
+                  const ds = formatDate(d);
+                  if (ds >= formatDate(startDate) && ds <= formatDate(endDate)) return "df-day df-day-inrange";
+                  return "df-day";
+                }}
               />
               <DatePicker
                 selected={endDate}
-                onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
+                onChange={(date: Date | null) => {
+                  if (date) onCustomEndChange(formatDate(date));
+                }}
                 selectsEnd
                 startDate={startDate}
                 endDate={endDate}
                 minDate={startDate || undefined}
                 inline
                 calendarClassName="df-calendar"
-                dayClassName={() => "df-day"}
-                showMonthDropdown
-                showYearDropdown
-                dropdownMode="select"
+                dayClassName={(d) => {
+                  if (!startDate || !endDate) return "df-day";
+                  const ds = formatDate(d);
+                  if (ds >= formatDate(startDate) && ds <= formatDate(endDate)) return "df-day df-day-inrange";
+                  return "df-day";
+                }}
               />
             </div>
             <div className="df-modal-footer">
@@ -156,7 +164,10 @@ export function DateFilter({
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function getDateRange(filter: DateFilterValue, customStart: string, customEnd: string): { start: string; end: string } {

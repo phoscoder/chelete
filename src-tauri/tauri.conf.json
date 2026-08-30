@@ -1,6 +1,6 @@
 {
   "productName": "Chelete",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "identifier": "com.chelete.app",
   "build": {
     "beforeDevCommand": "npm run dev",

@@ -2,6 +2,8 @@
 
 A personal finance tracker built with Tauri, React, and TypeScript.
 
+![Overview](images/overview.png)
+
 ## Features
 
 - Track accounts, transactions, and categories
@@ -9,6 +11,28 @@ A personal finance tracker built with Tauri, React, and TypeScript.
 - Omarchy theme integration with live switching
 - Keyboard-first navigation with Ctrl+ shortcuts
 - Command palette (Ctrl+K)
+
+## Omarchy Theme Integration
+
+Chelete adapts to whichever theme is set in Omarchy. Switch your system theme and the app follows instantly.
+
+| Tokyo Night | Gruvbox | Solitude |
+|:-----------:|:-------:|:--------:|
+| ![Tokyo Night](images/tokyo.png) | ![Gruvbox](images/gruvbox.png) | ![Solitude](images/solitude.png) |
+
+## Screenshots
+
+| Overview | Transactions | Accounts |
+|:--------:|:------------:|:--------:|
+| ![Overview](images/overview.png) | ![Transactions](images/transactions.png) | ![Accounts](images/accounts.png) |
+
+| Categories | Settings | Command Palette |
+|:----------:|:--------:|:---------------:|
+| ![Categories](images/categories.png) | ![Settings](images/settings.png) | ![Command](images/command.png) |
+
+| Overview (Collapsed) |
+|:--------------------:|
+| ![Overview Collapsed](images/overview-collapsed.png) |
 
 ## Tech Stack
 

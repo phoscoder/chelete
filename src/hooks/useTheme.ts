@@ -43,7 +43,9 @@ function applyTheme(theme: OmarchyTheme) {
   root.style.setProperty("--chelete-danger", c.danger || c.red || "#f7768e");
   root.style.setProperty("--chelete-warning", c.warning || c.yellow || "#e0af68");
   root.style.setProperty("--chelete-info", c.info || c.cyan || "#7dcfff");
-  root.style.setProperty("--chelete-border", c.border || "#3b4261");
+
+  const border = c.border || (isLight(c.background) ? darken(c.background, -0.15) : darken(c.background, 0.2));
+  root.style.setProperty("--chelete-border", border);
 }
 
 function darken(hex: string, amount: number): string {
@@ -58,4 +60,12 @@ function darken(hex: string, amount: number): string {
   const nb = Math.min(255, Math.max(0, Math.round(b * factor)));
 
   return `#${nr.toString(16).padStart(2, "0")}${ng.toString(16).padStart(2, "0")}${nb.toString(16).padStart(2, "0")}`;
+}
+
+function isLight(hex: string): boolean {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }

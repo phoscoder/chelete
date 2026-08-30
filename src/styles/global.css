@@ -399,6 +399,100 @@ body {
   color: var(--chelete-fg-subtle);
 }
 
+/* ── Date picker modal ─────────────────────────────────────── */
+
+.df-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.df-modal {
+  background: var(--chelete-bg);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  min-width: 520px;
+}
+
+.df-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--chelete-border);
+}
+
+.df-modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chelete-fg);
+}
+
+.df-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: var(--chelete-radius);
+  color: var(--chelete-fg-muted);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.df-modal-close:hover {
+  background: var(--chelete-surface);
+  color: var(--chelete-fg);
+}
+
+.df-modal-body {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  justify-content: center;
+}
+
+.df-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--chelete-border);
+}
+
+.df-modal-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-family: var(--chelete-font);
+  color: var(--chelete-fg);
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.df-modal-btn:hover {
+  background: var(--chelete-surface-hover);
+}
+
+.df-modal-btn-primary {
+  background: var(--chelete-accent);
+  color: var(--chelete-bg);
+  border-color: var(--chelete-accent);
+}
+
+.df-modal-btn-primary:hover {
+  opacity: 0.9;
+}
+
 /* ── React Datepicker overrides ────────────────────────────── */
 
 .df-picker-wrap {

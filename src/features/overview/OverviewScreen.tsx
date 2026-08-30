@@ -131,7 +131,7 @@ export function OverviewScreen() {
         <div className="card">
           <div className="card-header">
             <div className="card-label">Total Balance</div>
-            <Wallet size={24} strokeWidth={1.5} className="card-icon" />
+            <Wallet size={32} strokeWidth={1.5} className="card-icon" />
           </div>
           <div className="card-value">
             {formatBalance(overview.total_balance)}
@@ -140,7 +140,7 @@ export function OverviewScreen() {
         <div className="card">
           <div className="card-header">
             <div className="card-label">Income</div>
-            <TrendingUp size={24} strokeWidth={1.5} className="card-icon positive" />
+            <TrendingUp size={32} strokeWidth={1.5} className="card-icon positive" />
           </div>
           <div className="card-value positive">
             {formatMoney(filteredOverview.total_income)}
@@ -149,7 +149,7 @@ export function OverviewScreen() {
         <div className="card">
           <div className="card-header">
             <div className="card-label">Expenses</div>
-            <TrendingDown size={24} strokeWidth={1.5} className="card-icon negative" />
+            <TrendingDown size={32} strokeWidth={1.5} className="card-icon negative" />
           </div>
           <div className="card-value negative">
             {formatMoney(-filteredOverview.total_expenses)}
@@ -158,7 +158,7 @@ export function OverviewScreen() {
         <div className="card">
           <div className="card-header">
             <div className="card-label">Net</div>
-            <Activity size={24} strokeWidth={1.5} className="card-icon" />
+            <Activity size={32} strokeWidth={1.5} className="card-icon" />
           </div>
           <div className={`card-value ${net >= 0 ? "positive" : "negative"}`}>
             {formatMoney(net)}
@@ -177,7 +177,7 @@ export function OverviewScreen() {
               <div className="card" key={a.id}>
                 <div className="card-header">
                   <div className="card-label">{a.name}</div>
-                  <CreditCard size={22} strokeWidth={1.5} className="card-icon" />
+                  <CreditCard size={28} strokeWidth={1.5} className="card-icon" />
                 </div>
                 <div className="card-value">{formatBalance(a.balance)}</div>
               </div>

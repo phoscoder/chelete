@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Calendar, Check, ArrowRight } from "lucide-react";
+import { ChevronDown, Calendar, Check, X } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -45,14 +45,15 @@ export function DateFilter({
   onCustomStartChange,
   onCustomEndChange,
 }: DateFilterProps) {
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const label = FILTERS.find((f) => f.value === value)?.label || "All Time";
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -64,19 +65,23 @@ export function DateFilter({
   return (
     <div className="df-row">
       <div className="df" ref={ref}>
-        <button className="df-btn" onClick={() => setOpen(!open)}>
+        <button className="df-btn" onClick={() => setMenuOpen(!menuOpen)}>
           <Calendar size={13} strokeWidth={2} />
           <span>{label}</span>
-          <ChevronDown size={12} strokeWidth={2.5} className={open ? "df-chevron-open" : ""} />
+          <ChevronDown size={12} strokeWidth={2.5} className={menuOpen ? "df-chevron-open" : ""} />
         </button>
 
-        {open && (
+        {menuOpen && (
           <div className="df-menu">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
                 className={`df-opt ${value === f.value ? "df-opt-active" : ""}`}
-                onClick={() => { onChange(f.value); if (f.value !== "custom") setOpen(false); }}
+                onClick={() => {
+                  onChange(f.value);
+                  setMenuOpen(false);
+                  if (f.value === "custom") setCalendarOpen(true);
+                }}
               >
                 {f.label}
                 {value === f.value && <Check size={13} strokeWidth={3} />}
@@ -87,37 +92,63 @@ export function DateFilter({
       </div>
 
       {value === "custom" && (
-        <div className="df-range">
-          <DatePicker
-            selected={startDate}
-            onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
-            selectsStart
-            startDate={startDate}
-            endDate={endDate}
-            placeholderText="Start date"
-            className="df-date"
-            calendarClassName="df-calendar"
-            dayClassName={() => "df-day"}
-            popperClassName="df-popper"
-            popperPlacement="bottom-start"
-            inline
-          />
-          <ArrowRight size={11} strokeWidth={2} className="df-arrow" />
-          <DatePicker
-            selected={endDate}
-            onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
-            selectsEnd
-            startDate={startDate}
-            endDate={endDate}
-            minDate={startDate || undefined}
-            placeholderText="End date"
-            className="df-date"
-            calendarClassName="df-calendar"
-            dayClassName={() => "df-day"}
-            popperClassName="df-popper"
-            popperPlacement="bottom-start"
-            inline
-          />
+        <button className="df-btn" onClick={() => setCalendarOpen(true)}>
+          <Calendar size={13} strokeWidth={2} />
+          <span>{customStart || "Start"} — {customEnd || "End"}</span>
+        </button>
+      )}
+
+      {calendarOpen && (
+        <div className="df-modal-overlay" onClick={() => setCalendarOpen(false)}>
+          <div className="df-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="df-modal-header">
+              <span className="df-modal-title">Select Date Range</span>
+              <button className="df-modal-close" onClick={() => setCalendarOpen(false)}>
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+            <div className="df-modal-body">
+              <DatePicker
+                selected={startDate}
+                onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                inline
+                calendarClassName="df-calendar"
+                dayClassName={() => "df-day"}
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+              />
+              <DatePicker
+                selected={endDate}
+                onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                minDate={startDate || undefined}
+                inline
+                calendarClassName="df-calendar"
+                dayClassName={() => "df-day"}
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+              />
+            </div>
+            <div className="df-modal-footer">
+              <button className="df-modal-btn" onClick={() => {
+                onCustomStartChange("");
+                onCustomEndChange("");
+                setCalendarOpen(false);
+              }}>
+                Clear
+              </button>
+              <button className="df-modal-btn df-modal-btn-primary" onClick={() => setCalendarOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

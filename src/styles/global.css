@@ -587,6 +587,70 @@ body {
   color: var(--chelete-fg-subtle) !important;
 }
 
+/* Month / Year dropdown selects */
+
+.react-datepicker__month-dropdown,
+.react-datepicker__year-dropdown {
+  background: var(--chelete-bg) !important;
+  border: 1px solid var(--chelete-border) !important;
+  border-radius: var(--chelete-radius) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+  padding: 4px !important;
+}
+
+.react-datepicker__month-dropdown {
+  width: 130px !important;
+}
+
+.react-datepicker__year-dropdown {
+  width: 80px !important;
+}
+
+.react-datepicker__month-option,
+.react-datepicker__year-option {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-family: var(--chelete-font) !important;
+  color: var(--chelete-fg) !important;
+  background: none !important;
+  border: none !important;
+  border-radius: var(--chelete-radius) !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  transition: background 0.1s !important;
+  line-height: 1.4 !important;
+}
+
+.react-datepicker__month-option:hover,
+.react-datepicker__year-option:hover {
+  background: var(--chelete-surface-hover) !important;
+}
+
+.react-datepicker__month-option--selected,
+.react-datepicker__year-option--selected {
+  background: color-mix(in srgb, var(--chelete-accent) 15%, transparent) !important;
+  color: var(--chelete-accent) !important;
+  font-weight: 500 !important;
+}
+
+.react-datepicker__month-option--selected::before,
+.react-datepicker__year-option--selected::before {
+  display: none !important;
+}
+
+.react-datepicker__month-read-view--down-arrow,
+.react-datepicker__year-read-view--down-arrow {
+  border-color: var(--chelete-fg-muted) !important;
+  top: 2px !important;
+}
+
+.react-datepicker__month-read-view--down-arrow:hover,
+.react-datepicker__year-read-view--down-arrow:hover {
+  border-color: var(--chelete-fg) !important;
+}
+
 /* ── Toggle switch ─────────────────────────────────────────── */
 
 .toggle-switch {

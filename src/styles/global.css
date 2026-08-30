@@ -591,11 +591,52 @@ body {
 }
 
 .react-datepicker__navigation-icon::before {
-  border-color: var(--chelete-fg-muted) !important;
-  border-width: 1.5px !important;
+  display: none !important;
 }
 
-.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+.react-datepicker__navigation-icon::after {
+  display: none !important;
+}
+
+.react-datepicker__navigation--previous {
+  background: none !important;
+  border: none !important;
+}
+
+.react-datepicker__navigation--next {
+  background: none !important;
+  border: none !important;
+}
+
+.react-datepicker__navigation--previous::after {
+  content: "" !important;
+  display: block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-left: 2px solid var(--chelete-fg-muted) !important;
+  border-bottom: 2px solid var(--chelete-fg-muted) !important;
+  transform: rotate(45deg) !important;
+  margin-left: 4px !important;
+  transition: border-color 0.1s !important;
+}
+
+.react-datepicker__navigation--next::after {
+  content: "" !important;
+  display: block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-right: 2px solid var(--chelete-fg-muted) !important;
+  border-top: 2px solid var(--chelete-fg-muted) !important;
+  transform: rotate(45deg) !important;
+  margin-right: 4px !important;
+  transition: border-color 0.1s !important;
+}
+
+.react-datepicker__navigation--previous:hover::after {
+  border-color: var(--chelete-fg) !important;
+}
+
+.react-datepicker__navigation--next:hover::after {
   border-color: var(--chelete-fg) !important;
 }
 

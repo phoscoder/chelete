@@ -59,56 +59,54 @@ export function DateFilter({
   }, []);
 
   return (
-    <div className="date-dropdown" ref={ref}>
-      <button
-        className="date-dropdown-trigger"
-        onClick={() => setOpen(!open)}
-      >
-        <Calendar size={14} strokeWidth={1.5} />
-        <span>{currentLabel}</span>
-        <ChevronDown
-          size={14}
-          strokeWidth={1.5}
-          className={`date-dropdown-chevron ${open ? "open" : ""}`}
-        />
-      </button>
+    <div className="date-filter-row">
+      <div className="date-dropdown" ref={ref}>
+        <button
+          className="date-dropdown-trigger"
+          onClick={() => setOpen(!open)}
+        >
+          <Calendar size={14} strokeWidth={1.5} />
+          <span>{currentLabel}</span>
+          <ChevronDown
+            size={14}
+            strokeWidth={1.5}
+            className={`date-dropdown-chevron ${open ? "open" : ""}`}
+          />
+        </button>
 
-      {open && (
-        <div className="date-dropdown-menu">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
-              onClick={() => {
-                onChange(f.value);
-                if (f.value !== "custom") setOpen(false);
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+        {open && (
+          <div className="date-dropdown-menu">
+            {FILTERS.map((f) => (
+              <button
+                key={f.value}
+                className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
+                onClick={() => {
+                  onChange(f.value);
+                  if (f.value !== "custom") setOpen(false);
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-          {value === "custom" && (
-            <div className="date-dropdown-custom">
-              <div className="date-dropdown-custom-row">
-                <input
-                  type="date"
-                  className="form-input date-dropdown-input"
-                  value={customStart}
-                  onChange={(e) => onCustomStartChange(e.target.value)}
-                  placeholder="Start"
-                />
-                <span className="date-dropdown-separator">to</span>
-                <input
-                  type="date"
-                  className="form-input date-dropdown-input"
-                  value={customEnd}
-                  onChange={(e) => onCustomEndChange(e.target.value)}
-                  placeholder="End"
-                />
-              </div>
-            </div>
-          )}
+      {value === "custom" && (
+        <div className="date-filter-custom-range">
+          <input
+            type="date"
+            className="form-input date-filter-custom-input"
+            value={customStart}
+            onChange={(e) => onCustomStartChange(e.target.value)}
+          />
+          <span className="date-filter-custom-separator">to</span>
+          <input
+            type="date"
+            className="form-input date-filter-custom-input"
+            value={customEnd}
+            onChange={(e) => onCustomEndChange(e.target.value)}
+          />
         </div>
       )}
     </div>

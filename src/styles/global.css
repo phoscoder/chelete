@@ -289,6 +289,12 @@ body {
 
 /* ── Date filter dropdown ──────────────────────────────────── */
 
+.date-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .date-dropdown {
   position: relative;
   display: inline-block;
@@ -377,28 +383,22 @@ body {
   color: var(--chelete-bg);
 }
 
-.date-dropdown-custom {
-  padding: 8px 4px 4px;
-  border-top: 1px solid var(--chelete-border);
-  margin-top: 4px;
-}
-
-.date-dropdown-custom-row {
+.date-filter-custom-range {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.date-dropdown-input {
-  flex: 1;
-  min-width: 0;
-  padding: 5px 6px;
-  font-size: 11px;
+.date-filter-custom-input {
+  width: auto;
+  min-width: 130px;
+  padding: 5px 8px;
+  font-size: 12px;
 }
 
-.date-dropdown-separator {
+.date-filter-custom-separator {
   color: var(--chelete-fg-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* ── Icon picker ───────────────────────────────────────────── */

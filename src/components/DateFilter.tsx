@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Calendar, Check } from "lucide-react";
+import { ChevronDown, Calendar, Check, ArrowRight } from "lucide-react";
 
 export type DateFilterValue =
   | "today"
@@ -31,11 +31,9 @@ const FILTERS: { value: DateFilterValue; label: string; section: string }[] = [
   { value: "last_month", label: "Last Month", section: "Month" },
   { value: "this_year", label: "This Year", section: "Year" },
   { value: "last_year", label: "Last Year", section: "Year" },
-  { value: "all", label: "All Time", section: "Other" },
-  { value: "custom", label: "Custom Range", section: "Other" },
+  { value: "all", label: "All Time", section: "" },
+  { value: "custom", label: "Custom Range", section: "" },
 ];
-
-const sections = ["Recent", "Week", "Month", "Year", "Other"];
 
 export function DateFilter({
   value,
@@ -61,62 +59,85 @@ export function DateFilter({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const grouped = FILTERS.reduce(
+    (acc, f) => {
+      if (f.section) {
+        if (!acc.find((g) => g.section === f.section)) {
+          acc.push({ section: f.section, items: [] });
+        }
+        acc.find((g) => g.section === f.section)!.items.push(f);
+      } else {
+        if (!acc.find((g) => g.section === "")) {
+          acc.push({ section: "", items: [] });
+        }
+        acc.find((g) => g.section === "")!.items.push(f);
+      }
+      return acc;
+    },
+    [] as { section: string; items: typeof FILTERS }[]
+  );
+
   return (
-    <div className="date-filter-row">
-      <div className="date-dropdown" ref={ref}>
+    <div className="df-row">
+      <div className="df" ref={ref}>
         <button
-          className="date-dropdown-trigger"
+          className={`df-trigger ${open ? "df-trigger--open" : ""}`}
           onClick={() => setOpen(!open)}
         >
-          <Calendar size={14} strokeWidth={2} />
-          <span className="date-dropdown-label">{currentLabel}</span>
+          <Calendar size={14} strokeWidth={2} className="df-trigger-icon" />
+          <span className="df-trigger-text">{currentLabel}</span>
           <ChevronDown
-            size={14}
-            strokeWidth={2}
-            className={`date-dropdown-chevron ${open ? "open" : ""}`}
+            size={13}
+            strokeWidth={2.5}
+            className={`df-trigger-chevron ${open ? "df-trigger-chevron--open" : ""}`}
           />
         </button>
 
         {open && (
-          <div className="date-dropdown-menu">
-            {sections.map((section) => {
-              const items = FILTERS.filter((f) => f.section === section);
-              if (items.length === 0) return null;
-              return (
-                <div key={section}>
-                  <div className="date-dropdown-section">{section}</div>
-                  {items.map((f) => (
-                    <button
-                      key={f.value}
-                      className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
-                      onClick={() => {
-                        onChange(f.value);
-                        if (f.value !== "custom") setOpen(false);
-                      }}
-                    >
-                      <span>{f.label}</span>
-                      {value === f.value && <Check size={14} strokeWidth={2.5} />}
-                    </button>
-                  ))}
+          <div className="df-panel">
+            <div className="df-panel-inner">
+              {grouped.map((group, gi) => (
+                <div key={gi} className="df-group">
+                  {group.section && (
+                    <div className="df-group-label">{group.section}</div>
+                  )}
+                  {group.items.map((f) => {
+                    const active = value === f.value;
+                    return (
+                      <button
+                        key={f.value}
+                        className={`df-item ${active ? "df-item--active" : ""}`}
+                        onClick={() => {
+                          onChange(f.value);
+                          if (f.value !== "custom") setOpen(false);
+                        }}
+                      >
+                        <span className="df-item-label">{f.label}</span>
+                        <span className="df-item-check">
+                          {active && <Check size={14} strokeWidth={3} />}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         )}
       </div>
 
       {value === "custom" && (
-        <div className="date-filter-custom-range">
+        <div className="df-custom">
           <input
             type="date"
-            className="form-input date-filter-custom-input"
+            className="df-custom-input"
             value={customStart}
             onChange={(e) => onCustomStartChange(e.target.value)}
           />
-          <span className="date-filter-custom-separator">to</span>
+          <ArrowRight size={12} strokeWidth={2} className="df-custom-arrow" />
           <input
             type="date"
-            className="form-input date-filter-custom-input"
+            className="df-custom-input"
             value={customEnd}
             onChange={(e) => onCustomEndChange(e.target.value)}
           />

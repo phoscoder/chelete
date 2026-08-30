@@ -163,24 +163,23 @@ fn parse_omarchy_theme(path: &PathBuf, theme_name: &str) -> Result<OmarchyTheme,
     let accent = parsed.accent.unwrap_or_else(|| "#e68e0d".to_string());
 
     let bg_rgb = hex_to_rgb(&background);
-    let surface = rgb_to_hex(
-        bg_rgb.0.saturating_sub(10),
-        bg_rgb.1.saturating_sub(10),
-        bg_rgb.2.saturating_sub(10),
-    );
-    let surface_hover = rgb_to_hex(
-        bg_rgb.0.saturating_sub(20),
-        bg_rgb.1.saturating_sub(20),
-        bg_rgb.2.saturating_sub(20),
-    );
+    let light = is_light(bg_rgb);
+
+    let (surface, surface_hover, border) = if light {
+        (
+            rgb_to_hex(bg_rgb.0.saturating_sub(8), bg_rgb.1.saturating_sub(8), bg_rgb.2.saturating_sub(8)),
+            rgb_to_hex(bg_rgb.0.saturating_sub(15), bg_rgb.1.saturating_sub(15), bg_rgb.2.saturating_sub(15)),
+            rgb_to_hex(bg_rgb.0.saturating_sub(18), bg_rgb.1.saturating_sub(18), bg_rgb.2.saturating_sub(18)),
+        )
+    } else {
+        (
+            rgb_to_hex((bg_rgb.0 as u32 + 12).min(255) as u8, (bg_rgb.1 as u32 + 12).min(255) as u8, (bg_rgb.2 as u32 + 12).min(255) as u8),
+            rgb_to_hex((bg_rgb.0 as u32 + 20).min(255) as u8, (bg_rgb.1 as u32 + 20).min(255) as u8, (bg_rgb.2 as u32 + 20).min(255) as u8),
+            rgb_to_hex((bg_rgb.0 as u32 + 28).min(255) as u8, (bg_rgb.1 as u32 + 28).min(255) as u8, (bg_rgb.2 as u32 + 28).min(255) as u8),
+        )
+    };
     color_map.insert("surface".to_string(), surface);
     color_map.insert("surface_hover".to_string(), surface_hover);
-
-    let border = rgb_to_hex(
-        bg_rgb.0.saturating_sub(20),
-        bg_rgb.1.saturating_sub(20),
-        bg_rgb.2.saturating_sub(20),
-    );
     color_map.insert("border".to_string(), border);
 
     let fg_rgb = hex_to_rgb(&foreground);
@@ -249,4 +248,9 @@ fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
 
 fn rgb_to_hex(r: u8, g: u8, b: u8) -> String {
     format!("#{:02x}{:02x}{:02x}", r, g, b)
+}
+
+fn is_light(rgb: (u8, u8, u8)) -> bool {
+    let luminance = rgb.0 as u32 * 299 + rgb.1 as u32 * 587 + rgb.2 as u32 * 114;
+    luminance / 1000 > 128
 }

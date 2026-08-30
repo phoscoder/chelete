@@ -299,157 +299,88 @@ body {
   position: relative;
 }
 
-.df-trigger {
+.df-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
   font-size: 12px;
-  font-weight: 500;
   font-family: var(--chelete-font);
-  color: var(--chelete-fg);
-  background: var(--chelete-surface);
+  color: var(--chelete-fg-muted);
+  background: none;
   border: 1px solid var(--chelete-border);
   border-radius: var(--chelete-radius);
   cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
-  white-space: nowrap;
+  transition: all 0.12s ease;
 }
 
-.df-trigger:hover {
-  background: var(--chelete-surface-hover);
-  border-color: var(--chelete-fg-subtle);
-}
-
-.df-trigger--open {
-  background: var(--chelete-surface-hover);
-  border-color: var(--chelete-accent);
-}
-
-.df-trigger-icon {
-  color: var(--chelete-fg-muted);
-  flex-shrink: 0;
-}
-
-.df-trigger-text {
+.df-btn:hover {
   color: var(--chelete-fg);
+  border-color: var(--chelete-fg-subtle);
+  background: var(--chelete-surface);
 }
 
-.df-trigger-chevron {
-  color: var(--chelete-fg-subtle);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-}
-
-.df-trigger-chevron--open {
+.df-chevron-open {
   transform: rotate(180deg);
+  transition: transform 0.15s ease;
 }
 
-.df-panel {
+.df-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
   left: 0;
-  min-width: 220px;
-  background: var(--chelete-bg-secondary);
+  min-width: 170px;
+  background: var(--chelete-bg);
   border: 1px solid var(--chelete-border);
   border-radius: var(--chelete-radius);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.05),
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    0 16px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   z-index: 200;
-  overflow: hidden;
-  animation: df-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes df-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.df-panel-inner {
   padding: 4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: df-show 0.12s ease forwards;
 }
 
-.df-group + .df-group {
-  margin-top: 2px;
-  padding-top: 4px;
-  border-top: 1px solid var(--chelete-border);
+@keyframes df-show {
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.df-group-label {
-  padding: 6px 8px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--chelete-fg-subtle);
-}
-
-.df-item {
+.df-opt {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  height: 32px;
+  height: 30px;
   padding: 0 8px;
   font-size: 12px;
-  font-weight: 400;
   font-family: var(--chelete-font);
   color: var(--chelete-fg);
-  background: transparent;
+  background: none;
   border: none;
   border-radius: var(--chelete-radius);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: background 0.08s;
 }
 
-.df-item:hover {
-  background: var(--chelete-surface-hover);
+.df-opt:hover {
+  background: var(--chelete-surface);
 }
 
-.df-item--active {
-  background: color-mix(in srgb, var(--chelete-accent) 12%, transparent);
-  color: var(--chelete-accent);
-  font-weight: 500;
-}
-
-.df-item--active:hover {
-  background: color-mix(in srgb, var(--chelete-accent) 18%, transparent);
-}
-
-.df-item-label {
-  flex: 1;
-  text-align: left;
-}
-
-.df-item-check {
-  width: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+.df-opt-active {
   color: var(--chelete-accent);
 }
 
-.df-custom {
+.df-range {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.df-custom-input {
-  height: 32px;
-  width: auto;
-  min-width: 135px;
-  padding: 0 10px;
+.df-date {
+  height: 28px;
+  width: 135px;
+  padding: 0 8px;
   font-size: 12px;
   font-family: var(--chelete-font);
   color: var(--chelete-fg);
@@ -457,18 +388,15 @@ body {
   border: 1px solid var(--chelete-border);
   border-radius: var(--chelete-radius);
   outline: none;
-  transition: border-color 0.15s ease;
-  appearance: none;
-  -webkit-appearance: none;
+  transition: border-color 0.12s;
 }
 
-.df-custom-input:focus {
+.df-date:focus {
   border-color: var(--chelete-accent);
 }
 
-.df-custom-arrow {
+.df-arrow {
   color: var(--chelete-fg-subtle);
-  flex-shrink: 0;
 }
 
 /* ── Toggle switch ─────────────────────────────────────────── */

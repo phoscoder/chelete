@@ -13,7 +13,6 @@ import {
   TrendingDown,
   Activity,
   CreditCard,
-  Tag,
 } from "lucide-react";
 import {
   DateFilter,
@@ -21,6 +20,7 @@ import {
   isDateInRange,
   type DateFilterValue,
 } from "../../components/DateFilter";
+import { DonutChart } from "../../components/DonutChart";
 
 export function OverviewScreen() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -32,6 +32,8 @@ export function OverviewScreen() {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [transactionPage, setTransactionPage] = useState(1);
+  const TRANSACTIONS_PER_PAGE = 10;
 
   useEffect(() => {
     api.getOverview().then(setOverview);
@@ -58,6 +60,10 @@ export function OverviewScreen() {
     return txns;
   }, [allTransactions, start, end, filterType, filterAccount]);
 
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [filterType, filterAccount, dateFilter, customStart, customEnd]);
+
   const filteredOverview = useMemo(() => {
     if (!overview) return null;
     const dateTxns = allTransactions.filter((t) =>
@@ -71,12 +77,19 @@ export function OverviewScreen() {
       .reduce((sum, t) => sum + t.amount, 0);
 
     const spentByCategory: Record<string, number> = {};
+    const earnedByCategory: Record<string, number> = {};
     for (const t of dateTxns) {
-      if (t.transaction_type === "expense" && t.category_id) {
-        spentByCategory[t.category_id] =
-          (spentByCategory[t.category_id] || 0) + t.amount;
+      if (t.category_id) {
+        if (t.transaction_type === "expense") {
+          spentByCategory[t.category_id] =
+            (spentByCategory[t.category_id] || 0) + t.amount;
+        } else if (t.transaction_type === "income") {
+          earnedByCategory[t.category_id] =
+            (earnedByCategory[t.category_id] || 0) + t.amount;
+        }
       }
     }
+
     const category_spending = Object.entries(spentByCategory)
       .map(([category_id, spent]) => ({
         category_id,
@@ -87,11 +100,29 @@ export function OverviewScreen() {
       }))
       .sort((a, b) => b.spent - a.spent);
 
+    const income_by_category = Object.entries(earnedByCategory)
+      .map(([category_id, value]) => ({
+        label: categoryMap[category_id]?.name || "Unknown",
+        value,
+        color: categoryMap[category_id]?.color || null,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    const expenses_by_category = Object.entries(spentByCategory)
+      .map(([category_id, value]) => ({
+        label: categoryMap[category_id]?.name || "Unknown",
+        value,
+        color: categoryMap[category_id]?.color || null,
+      }))
+      .sort((a, b) => b.value - a.value);
+
     return {
       ...overview,
       total_income,
       total_expenses,
       category_spending,
+      income_by_category,
+      expenses_by_category,
     };
   }, [overview, allTransactions, start, end, categoryMap]);
 
@@ -187,6 +218,22 @@ export function OverviewScreen() {
       )}
 
       <div className="page-title" style={{ fontSize: 14, marginBottom: 12 }}>
+        Breakdown
+      </div>
+      <div className="donut-chart-grid">
+        <DonutChart
+          title="Income"
+          data={filteredOverview.income_by_category}
+          emptyMessage="No income for this period"
+        />
+        <DonutChart
+          title="Expenses"
+          data={filteredOverview.expenses_by_category}
+          emptyMessage="No expenses for this period"
+        />
+      </div>
+
+      <div className="page-title" style={{ fontSize: 14, marginBottom: 12 }}>
         Recent Transactions
       </div>
       <div className="overview-filters">
@@ -214,18 +261,19 @@ export function OverviewScreen() {
       </div>
 
       {filteredTransactions.length > 0 ? (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((t) => {
+        <>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginate(filteredTransactions, transactionPage, TRANSACTIONS_PER_PAGE).map((t) => {
                 const cat = t.category_id ? categoryMap[t.category_id] : null;
                 return (
                   <tr key={t.id}>
@@ -260,6 +308,13 @@ export function OverviewScreen() {
             </tbody>
           </table>
         </div>
+        <TransactionPagination
+          page={transactionPage}
+          perPage={TRANSACTIONS_PER_PAGE}
+          total={filteredTransactions.length}
+          onPageChange={setTransactionPage}
+        />
+      </>
       ) : (
         <div
           style={{
@@ -270,50 +325,6 @@ export function OverviewScreen() {
         >
           No transactions match the selected filters.
         </div>
-      )}
-
-      {filteredOverview.category_spending.length > 0 && (
-        <>
-          <div className="page-title" style={{ fontSize: 14, marginBottom: 12 }}>
-            <Tag
-              size={14}
-              strokeWidth={1.5}
-              style={{ marginRight: 6, verticalAlign: "middle" }}
-            />
-            Spending by Category
-          </div>
-          {filteredOverview.category_spending.map((cs) => {
-            const pct =
-              filteredOverview.total_expenses > 0
-                ? Math.round((cs.spent / filteredOverview.total_expenses) * 100)
-                : 0;
-            return (
-              <div className="budget-row" key={cs.category_id}>
-                <div className="budget-header">
-                  <span className="budget-name">
-                    {cs.icon && (
-                      <CategoryIcon
-                        name={cs.icon}
-                        size={12}
-                        style={{ marginRight: 4, verticalAlign: "middle" }}
-                      />
-                    )}
-                    {cs.category_name}
-                  </span>
-                  <span className="budget-amounts">
-                    {formatMoneyShort(cs.spent)} ({pct}%)
-                  </span>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill ok"
-                    style={{ width: `${Math.min(pct, 100)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </>
       )}
 
       {filteredTransactions.length === 0 && overview.accounts.length === 0 && (
@@ -362,13 +373,47 @@ export function OverviewScreen() {
   );
 }
 
-function formatMoneyShort(amount: number): string {
-  const abs = Math.abs(amount);
-  const dollars = abs / 100;
-  if (dollars >= 1000) {
-    return `$${(dollars / 1000).toFixed(1)}k`;
-  }
-  return `$${dollars.toFixed(2)}`;
+function paginate<T>(items: T[], page: number, perPage: number): T[] {
+  const start = (page - 1) * perPage;
+  return items.slice(start, start + perPage);
+}
+
+function TransactionPagination({
+  page,
+  perPage,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  perPage: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const start = (page - 1) * perPage + 1;
+  const end = Math.min(page * perPage, total);
+
+  return (
+    <div className="pagination">
+      <button
+        className="pagination-btn"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+      >
+        Previous
+      </button>
+      <span className="pagination-info">
+        {start}–{end} of {total}
+      </span>
+      <button
+        className="pagination-btn"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+      >
+        Next
+      </button>
+    </div>
+  );
 }
 
 function CategoryIcon({

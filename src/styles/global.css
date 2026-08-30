@@ -1100,3 +1100,138 @@ tr:hover td {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--chelete-fg-subtle);
 }
+
+/* ── Donut charts ──────────────────────────────────────────── */
+
+.donut-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.donut-chart {
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  padding: 16px;
+}
+
+.donut-chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chelete-fg);
+  margin-bottom: 12px;
+}
+
+.donut-chart-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.donut-chart-svg {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.donut-chart-label {
+  font-size: 10px;
+  fill: var(--chelete-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.donut-chart-value {
+  font-size: 20px;
+  font-weight: 600;
+  fill: var(--chelete-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.donut-chart-empty {
+  color: var(--chelete-fg-muted);
+  font-size: 13px;
+  padding: 32px 0;
+  text-align: center;
+  flex: 1;
+}
+
+.donut-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.donut-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.donut-chart-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.donut-chart-legend-label {
+  color: var(--chelete-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.donut-chart-legend-value {
+  color: var(--chelete-fg-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ── Pagination ────────────────────────────────────────────── */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  margin-bottom: 24px;
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: var(--chelete-font);
+  color: var(--chelete-fg);
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--chelete-surface-hover);
+  border-color: var(--chelete-fg-subtle);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 12px;
+  color: var(--chelete-fg-muted);
+  font-variant-numeric: tabular-nums;
+}

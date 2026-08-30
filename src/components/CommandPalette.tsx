@@ -24,12 +24,12 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands: Command[] = [
-    { id: "overview", label: "Go to Overview", shortcut: "g o", action: () => onNavigate("overview") },
-    { id: "transactions", label: "Go to Transactions", shortcut: "g t", action: () => onNavigate("transactions") },
-    { id: "accounts", label: "Go to Accounts", shortcut: "g a", action: () => onNavigate("accounts") },
-    { id: "categories", label: "Go to Categories", shortcut: "g c", action: () => onNavigate("categories") },
-    { id: "settings", label: "Go to Settings", shortcut: "g s", action: () => onNavigate("settings") },
-    { id: "add-transaction", label: "Add Transaction", shortcut: "a", action: () => onAction("add-transaction") },
+    { id: "overview", label: "Go to Overview", shortcut: "Ctrl+O", action: () => onNavigate("overview") },
+    { id: "transactions", label: "Go to Transactions", shortcut: "Ctrl+T", action: () => onNavigate("transactions") },
+    { id: "accounts", label: "Go to Accounts", shortcut: "Ctrl+A", action: () => onNavigate("accounts") },
+    { id: "categories", label: "Go to Categories", shortcut: "Ctrl+C", action: () => onNavigate("categories") },
+    { id: "settings", label: "Go to Settings", shortcut: "Ctrl+S", action: () => onNavigate("settings") },
+    { id: "add-transaction", label: "Add Transaction", action: () => onAction("add-transaction") },
     { id: "add-account", label: "Add Account", action: () => onAction("add-account") },
     { id: "add-category", label: "Add Category", action: () => onAction("add-category") },
   ];

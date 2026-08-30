@@ -24,7 +24,7 @@ pub fn init_database(app: &AppHandle) -> Result<Mutex<Connection>> {
     Ok(Mutex::new(conn))
 }
 
-fn run_migrations(conn: &Connection) -> Result<()> {
+pub fn run_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS accounts (
@@ -82,4 +82,9 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+pub fn run_migrations_for_test(conn: &Connection) -> Result<()> {
+    run_migrations(conn)
 }

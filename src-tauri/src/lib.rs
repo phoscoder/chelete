@@ -1,5 +1,6 @@
 mod commands;
 mod database;
+mod seed;
 mod theme;
 
 use database::DbState;
@@ -30,6 +31,7 @@ pub fn run() {
             commands::delete_category,
             commands::get_overview,
             commands::get_omarchy_theme,
+            seed::seed_database_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chelete");

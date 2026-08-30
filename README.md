@@ -35,6 +35,7 @@ npm run tauri build
 
 ```bash
 make test              # Run all tests
+make seed              # Seed database with sample data
 make release-patch     # Bump 0.1.0 -> 0.1.1 + git tag
 make release-minor     # Bump 0.1.0 -> 0.2.0 + git tag
 make release-major     # Bump 0.1.0 -> 1.0.0 + git tag

@@ -11,6 +11,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "chelete"
 path = "src/main.rs"
 
+[[bin]]
+name = "seed"
+path = "src/bin/seed.rs"
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"

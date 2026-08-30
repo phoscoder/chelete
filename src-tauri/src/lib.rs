@@ -1,6 +1,6 @@
 mod commands;
 mod database;
-mod seed;
+pub mod seed;
 mod theme;
 
 use database::DbState;

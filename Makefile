@@ -1,4 +1,4 @@
-.PHONY: dev build test test-watch release-patch release-minor release-major aur-update clean
+.PHONY: dev build test test-watch seed release-patch release-minor release-major aur-update clean
 
 dev:
 	npm run tauri dev
@@ -13,6 +13,9 @@ test:
 
 test-watch:
 	npm run test:watch
+
+seed:
+	npm run seed
 
 release-patch:
 	./scripts/bump-version.sh patch

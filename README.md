@@ -1,6 +1,6 @@
 # Chelete
 
-A personal finance tracker built with Tauri, React, and TypeScript.
+A fast, keyboard-driven personal finance tracker for Linux. Manage accounts, track spending, and visualize your finances without touching the mouse. Built for [Omarchy](https://github.com/basecamp/omarchy) with live theme integration — it adapts to whatever desktop theme you're running.
 
 ![Overview](images/overview.png)
 

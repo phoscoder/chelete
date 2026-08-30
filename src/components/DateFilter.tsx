@@ -88,40 +88,36 @@ export function DateFilter({
 
       {value === "custom" && (
         <div className="df-range">
-          <div className="df-picker-wrap">
-            <DatePicker
-              selected={startDate}
-              onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              placeholderText="Start date"
-              className="df-date"
-              calendarClassName="df-calendar"
-              dayClassName={() => "df-day"}
-              popperClassName="df-popper"
-              popperPlacement="bottom-start"
-              inline
-            />
-          </div>
+          <DatePicker
+            selected={startDate}
+            onChange={(date: Date | null) => onCustomStartChange(date ? formatDate(date) : "")}
+            selectsStart
+            startDate={startDate}
+            endDate={endDate}
+            placeholderText="Start date"
+            className="df-date"
+            calendarClassName="df-calendar"
+            dayClassName={() => "df-day"}
+            popperClassName="df-popper"
+            popperPlacement="bottom-start"
+            inline
+          />
           <ArrowRight size={11} strokeWidth={2} className="df-arrow" />
-          <div className="df-picker-wrap">
-            <DatePicker
-              selected={endDate}
-              onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              minDate={startDate || undefined}
-              placeholderText="End date"
-              className="df-date"
-              calendarClassName="df-calendar"
-              dayClassName={() => "df-day"}
-              popperClassName="df-popper"
-              popperPlacement="bottom-start"
-              inline
-            />
-          </div>
+          <DatePicker
+            selected={endDate}
+            onChange={(date: Date | null) => onCustomEndChange(date ? formatDate(date) : "")}
+            selectsEnd
+            startDate={startDate}
+            endDate={endDate}
+            minDate={startDate || undefined}
+            placeholderText="End date"
+            className="df-date"
+            calendarClassName="df-calendar"
+            dayClassName={() => "df-day"}
+            popperClassName="df-popper"
+            popperPlacement="bottom-start"
+            inline
+          />
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Calendar } from "lucide-react";
+import { ChevronDown, Calendar, Check } from "lucide-react";
 
 export type DateFilterValue =
   | "today"
@@ -22,18 +22,20 @@ interface DateFilterProps {
   onCustomEndChange: (v: string) => void;
 }
 
-const FILTERS: { value: DateFilterValue; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "this_week", label: "This Week" },
-  { value: "last_week", label: "Last Week" },
-  { value: "this_month", label: "This Month" },
-  { value: "last_month", label: "Last Month" },
-  { value: "this_year", label: "This Year" },
-  { value: "last_year", label: "Last Year" },
-  { value: "all", label: "All Time" },
-  { value: "custom", label: "Custom Range" },
+const FILTERS: { value: DateFilterValue; label: string; section: string }[] = [
+  { value: "today", label: "Today", section: "Recent" },
+  { value: "yesterday", label: "Yesterday", section: "Recent" },
+  { value: "this_week", label: "This Week", section: "Week" },
+  { value: "last_week", label: "Last Week", section: "Week" },
+  { value: "this_month", label: "This Month", section: "Month" },
+  { value: "last_month", label: "Last Month", section: "Month" },
+  { value: "this_year", label: "This Year", section: "Year" },
+  { value: "last_year", label: "Last Year", section: "Year" },
+  { value: "all", label: "All Time", section: "Other" },
+  { value: "custom", label: "Custom Range", section: "Other" },
 ];
+
+const sections = ["Recent", "Week", "Month", "Year", "Other"];
 
 export function DateFilter({
   value,
@@ -46,7 +48,8 @@ export function DateFilter({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const currentLabel = FILTERS.find((f) => f.value === value)?.label || "All Time";
+  const currentLabel =
+    FILTERS.find((f) => f.value === value)?.label || "All Time";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -65,29 +68,39 @@ export function DateFilter({
           className="date-dropdown-trigger"
           onClick={() => setOpen(!open)}
         >
-          <Calendar size={14} strokeWidth={1.5} />
-          <span>{currentLabel}</span>
+          <Calendar size={14} strokeWidth={2} />
+          <span className="date-dropdown-label">{currentLabel}</span>
           <ChevronDown
             size={14}
-            strokeWidth={1.5}
+            strokeWidth={2}
             className={`date-dropdown-chevron ${open ? "open" : ""}`}
           />
         </button>
 
         {open && (
           <div className="date-dropdown-menu">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
-                onClick={() => {
-                  onChange(f.value);
-                  if (f.value !== "custom") setOpen(false);
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
+            {sections.map((section) => {
+              const items = FILTERS.filter((f) => f.section === section);
+              if (items.length === 0) return null;
+              return (
+                <div key={section}>
+                  <div className="date-dropdown-section">{section}</div>
+                  {items.map((f) => (
+                    <button
+                      key={f.value}
+                      className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
+                      onClick={() => {
+                        onChange(f.value);
+                        if (f.value !== "custom") setOpen(false);
+                      }}
+                    >
+                      <span>{f.label}</span>
+                      {value === f.value && <Check size={14} strokeWidth={2.5} />}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

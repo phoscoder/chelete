@@ -36,6 +36,13 @@ export default function App() {
 
   useTheme();
 
+  // Apply saved corner radius preference
+  useEffect(() => {
+    const saved = localStorage.getItem("chelete-radius");
+    const radius = saved === "square" ? "0px" : "4px";
+    document.documentElement.style.setProperty("--chelete-radius", radius);
+  }, []);
+
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       localStorage.setItem("sidebar-collapsed", String(!prev));

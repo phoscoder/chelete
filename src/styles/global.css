@@ -590,38 +590,13 @@ body {
   height: 24px !important;
 }
 
-.react-datepicker__navigation-icon {
-  display: none !important;
-}
-
 .react-datepicker__navigation-icon::before {
-  display: none !important;
+  border-color: var(--chelete-fg-muted) !important;
+  border-width: 1.5px !important;
 }
 
-.react-datepicker__navigation--previous::after {
-  content: "‹" !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px !important;
-  font-weight: 300 !important;
-  color: var(--chelete-fg-muted) !important;
-  line-height: 1 !important;
-}
-
-.react-datepicker__navigation--next::after {
-  content: "›" !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px !important;
-  font-weight: 300 !important;
-  color: var(--chelete-fg-muted) !important;
-  line-height: 1 !important;
-}
-
-.react-datepicker__navigation:hover::after {
-  color: var(--chelete-fg) !important;
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--chelete-fg) !important;
 }
 
 /* Hide month/year dropdowns entirely */

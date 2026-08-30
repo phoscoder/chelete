@@ -1,3 +1,6 @@
+import { useState, useRef, useEffect } from "react";
+import { ChevronDown, Calendar } from "lucide-react";
+
 export type DateFilterValue =
   | "today"
   | "yesterday"
@@ -29,7 +32,7 @@ const FILTERS: { value: DateFilterValue; label: string }[] = [
   { value: "this_year", label: "This Year" },
   { value: "last_year", label: "Last Year" },
   { value: "all", label: "All Time" },
-  { value: "custom", label: "Custom" },
+  { value: "custom", label: "Custom Range" },
 ];
 
 export function DateFilter({
@@ -40,34 +43,72 @@ export function DateFilter({
   onCustomStartChange,
   onCustomEndChange,
 }: DateFilterProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const currentLabel = FILTERS.find((f) => f.value === value)?.label || "All Time";
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   return (
-    <div>
-      <div className="date-filter">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            className={`date-filter-pill ${value === f.value ? "active" : ""}`}
-            onClick={() => onChange(f.value)}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      {value === "custom" && (
-        <div className="date-filter-custom">
-          <input
-            type="date"
-            className="form-input date-filter-input"
-            value={customStart}
-            onChange={(e) => onCustomStartChange(e.target.value)}
-          />
-          <span className="date-filter-separator">to</span>
-          <input
-            type="date"
-            className="form-input date-filter-input"
-            value={customEnd}
-            onChange={(e) => onCustomEndChange(e.target.value)}
-          />
+    <div className="date-dropdown" ref={ref}>
+      <button
+        className="date-dropdown-trigger"
+        onClick={() => setOpen(!open)}
+      >
+        <Calendar size={14} strokeWidth={1.5} />
+        <span>{currentLabel}</span>
+        <ChevronDown
+          size={14}
+          strokeWidth={1.5}
+          className={`date-dropdown-chevron ${open ? "open" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="date-dropdown-menu">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              className={`date-dropdown-item ${value === f.value ? "active" : ""}`}
+              onClick={() => {
+                onChange(f.value);
+                if (f.value !== "custom") setOpen(false);
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+
+          {value === "custom" && (
+            <div className="date-dropdown-custom">
+              <div className="date-dropdown-custom-row">
+                <input
+                  type="date"
+                  className="form-input date-dropdown-input"
+                  value={customStart}
+                  onChange={(e) => onCustomStartChange(e.target.value)}
+                  placeholder="Start"
+                />
+                <span className="date-dropdown-separator">to</span>
+                <input
+                  type="date"
+                  className="form-input date-dropdown-input"
+                  value={customEnd}
+                  onChange={(e) => onCustomEndChange(e.target.value)}
+                  placeholder="End"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

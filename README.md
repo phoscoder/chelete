@@ -66,6 +66,12 @@ make release-major     # Bump 0.1.0 -> 1.0.0 + git tag
 git push origin main --tags  # Triggers GitHub Actions release
 ```
 
+## Special Thanks
+
+- **Victor Phos** — The Architect & QA
+- **ChatGPT** — For planning
+- **MiMo V2.5** — For implementation
+
 ## License
 
 [MIT](LICENSE)

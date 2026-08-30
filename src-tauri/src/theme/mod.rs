@@ -164,22 +164,22 @@ fn parse_omarchy_theme(path: &PathBuf, theme_name: &str) -> Result<OmarchyTheme,
 
     let bg_rgb = hex_to_rgb(&background);
     let surface = rgb_to_hex(
-        (bg_rgb.0 as u32 + 15).min(255) as u8,
-        (bg_rgb.1 as u32 + 15).min(255) as u8,
-        (bg_rgb.2 as u32 + 15).min(255) as u8,
+        bg_rgb.0.saturating_sub(10),
+        bg_rgb.1.saturating_sub(10),
+        bg_rgb.2.saturating_sub(10),
     );
     let surface_hover = rgb_to_hex(
-        (bg_rgb.0 as u32 + 25).min(255) as u8,
-        (bg_rgb.1 as u32 + 25).min(255) as u8,
-        (bg_rgb.2 as u32 + 25).min(255) as u8,
+        bg_rgb.0.saturating_sub(20),
+        bg_rgb.1.saturating_sub(20),
+        bg_rgb.2.saturating_sub(20),
     );
     color_map.insert("surface".to_string(), surface);
     color_map.insert("surface_hover".to_string(), surface_hover);
 
     let border = rgb_to_hex(
-        (bg_rgb.0 as u32 + 35).min(255) as u8,
-        (bg_rgb.1 as u32 + 35).min(255) as u8,
-        (bg_rgb.2 as u32 + 35).min(255) as u8,
+        bg_rgb.0.saturating_sub(20),
+        bg_rgb.1.saturating_sub(20),
+        bg_rgb.2.saturating_sub(20),
     );
     color_map.insert("border".to_string(), border);
 

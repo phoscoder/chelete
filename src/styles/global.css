@@ -190,6 +190,13 @@ body {
   margin: 8px 16px;
 }
 
+.sidebar-divider-thin {
+  height: 1px;
+  background: var(--chelete-border);
+  margin: 8px 16px;
+  opacity: 0.5;
+}
+
 .main-content {
   flex: 1;
   overflow-y: auto;

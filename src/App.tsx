@@ -149,7 +149,6 @@ export default function App() {
             );
           })}
         </nav>
-        <div className="sidebar-divider" />
         <nav>
           <button
             className="sidebar-link"
@@ -165,7 +164,7 @@ export default function App() {
             )}
           </button>
         </nav>
-        <div className="sidebar-divider" />
+        <div className="sidebar-divider-thin" />
         <nav>
           <button className="sidebar-link" onClick={toggleCollapsed}>
             {collapsed ? (

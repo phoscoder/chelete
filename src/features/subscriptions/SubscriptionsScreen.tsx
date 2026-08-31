@@ -16,6 +16,51 @@ const FREQUENCY_LABELS: Record<string, string> = Object.fromEntries(
   FREQUENCIES.map((f) => [f.value, f.label])
 );
 
+function getNextPaymentDate(
+  startDate: string | null,
+  frequency: string
+): string | null {
+  if (!startDate) return null;
+
+  const start = new Date(startDate + "T00:00:00");
+  if (isNaN(start.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const intervals: Record<string, { months?: number; days?: number }> = {
+    weekly: { days: 7 },
+    bi_weekly: { days: 14 },
+    monthly: { months: 1 },
+    quarterly: { months: 3 },
+    bi_yearly: { months: 6 },
+    yearly: { months: 12 },
+  };
+
+  const interval = intervals[frequency];
+  if (!interval) return startDate;
+
+  const next = new Date(start);
+  const maxIterations = 120;
+  let iterations = 0;
+
+  if (interval.days) {
+    while (next < today && iterations < maxIterations) {
+      next.setDate(next.getDate() + interval.days);
+      iterations++;
+    }
+  } else if (interval.months) {
+    while (next < today && iterations < maxIterations) {
+      const year = next.getFullYear();
+      const month = next.getMonth() + interval.months;
+      next.setFullYear(year, month, next.getDate());
+      iterations++;
+    }
+  }
+
+  return next.toISOString().split("T")[0];
+}
+
 export function SubscriptionsScreen() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -124,6 +169,7 @@ export function SubscriptionsScreen() {
                 <th>Account</th>
                 <th>Period</th>
                 <th>Start Date</th>
+                <th>Next Payment</th>
                 <th className="amount">Amount</th>
                 <th></th>
               </tr>
@@ -132,6 +178,7 @@ export function SubscriptionsScreen() {
               {filteredSubscriptions.map((s) => {
                 const category = s.category_id ? categoryMap[s.category_id] : null;
                 const account = s.account_id ? accountMap[s.account_id] : null;
+                const nextPayment = getNextPaymentDate(s.start_date, s.frequency);
                 return (
                   <tr key={s.id}>
                     <td>{s.name}</td>
@@ -145,6 +192,7 @@ export function SubscriptionsScreen() {
                     <td>{account?.name || <span style={{ color: "var(--chelete-fg-subtle)" }}>—</span>}</td>
                     <td>{FREQUENCY_LABELS[s.frequency] || s.frequency}</td>
                     <td>{s.start_date || <span style={{ color: "var(--chelete-fg-subtle)" }}>—</span>}</td>
+                    <td>{nextPayment || <span style={{ color: "var(--chelete-fg-subtle)" }}>—</span>}</td>
                     <td className="amount">{formatMoney(s.amount)}</td>
                     <td>
                       <button

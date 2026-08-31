@@ -3,11 +3,13 @@ import type {
   Account,
   Category,
   Transaction,
+  Subscription,
   Overview,
   OmarchyTheme,
   CreateAccountRequest,
   CreateTransactionRequest,
   CreateCategoryRequest,
+  CreateSubscriptionRequest,
 } from "../types";
 
 export const api = {
@@ -37,6 +39,15 @@ export const api = {
     invoke<Category>("update_category", { request }),
   deleteCategory: (id: string) =>
     invoke<void>("delete_category", { id }),
+
+  // Subscriptions
+  getSubscriptions: () => invoke<Subscription[]>("get_subscriptions"),
+  createSubscription: (request: CreateSubscriptionRequest) =>
+    invoke<Subscription>("create_subscription", { request }),
+  updateSubscription: (request: { id: string } & Partial<Subscription>) =>
+    invoke<Subscription>("update_subscription", { request }),
+  deleteSubscription: (id: string) =>
+    invoke<void>("delete_subscription", { id }),
 
   // Overview
   getOverview: () => invoke<Overview>("get_overview"),

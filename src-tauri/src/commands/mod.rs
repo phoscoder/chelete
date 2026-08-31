@@ -65,6 +65,21 @@ pub struct CategorySpending {
     pub budget_limit: Option<i64>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Subscription {
+    pub id: String,
+    pub name: String,
+    pub amount: i64,
+    pub currency: String,
+    pub frequency: String,
+    pub category_id: Option<String>,
+    pub account_id: Option<String>,
+    pub start_date: Option<String>,
+    pub is_active: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateAccountRequest {
     pub name: String,
@@ -131,6 +146,30 @@ pub struct UpdateCategoryRequest {
     pub category_type: Option<String>,
     pub icon: Option<Option<String>>,
     pub color: Option<Option<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateSubscriptionRequest {
+    pub name: String,
+    pub amount: i64,
+    pub currency: String,
+    pub frequency: String,
+    pub category_id: Option<String>,
+    pub account_id: Option<String>,
+    pub start_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateSubscriptionRequest {
+    pub id: String,
+    pub name: Option<String>,
+    pub amount: Option<i64>,
+    pub currency: Option<String>,
+    pub frequency: Option<String>,
+    pub category_id: Option<Option<String>>,
+    pub account_id: Option<Option<String>>,
+    pub start_date: Option<Option<String>>,
+    pub is_active: Option<bool>,
 }
 
 fn generate_id() -> String {
@@ -778,6 +817,183 @@ pub fn get_overview(state: State<'_, DbState>) -> Result<Overview, String> {
         recent_transactions,
         category_spending,
     })
+}
+
+// ── Subscriptions ────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_subscriptions(state: State<'_, DbState>) -> Result<Vec<Subscription>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, amount, currency, frequency, category_id, account_id, start_date, is_active, created_at, updated_at
+             FROM subscriptions WHERE deleted_at IS NULL ORDER BY name",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let subscriptions = stmt
+        .query_map([], |row| {
+            Ok(Subscription {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                amount: row.get(2)?,
+                currency: row.get(3)?,
+                frequency: row.get(4)?,
+                category_id: row.get(5)?,
+                account_id: row.get(6)?,
+                start_date: row.get(7)?,
+                is_active: row.get::<_, i32>(8)? == 1,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(subscriptions)
+}
+
+#[tauri::command]
+pub fn create_subscription(
+    state: State<'_, DbState>,
+    request: CreateSubscriptionRequest,
+) -> Result<Subscription, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let id = generate_id();
+
+    conn.execute(
+        "INSERT INTO subscriptions (id, name, amount, currency, frequency, category_id, account_id, start_date)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            id,
+            request.name,
+            request.amount,
+            request.currency,
+            request.frequency,
+            request.category_id,
+            request.account_id,
+            request.start_date,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(Subscription {
+        id,
+        name: request.name,
+        amount: request.amount,
+        currency: request.currency,
+        frequency: request.frequency,
+        category_id: request.category_id,
+        account_id: request.account_id,
+        start_date: request.start_date,
+        is_active: true,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        updated_at: chrono::Utc::now().to_rfc3339(),
+    })
+}
+
+#[tauri::command]
+pub fn update_subscription(
+    state: State<'_, DbState>,
+    request: UpdateSubscriptionRequest,
+) -> Result<Subscription, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    if let Some(name) = &request.name {
+        conn.execute(
+            "UPDATE subscriptions SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![name, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(amount) = request.amount {
+        conn.execute(
+            "UPDATE subscriptions SET amount = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![amount, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(currency) = &request.currency {
+        conn.execute(
+            "UPDATE subscriptions SET currency = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![currency, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(frequency) = &request.frequency {
+        conn.execute(
+            "UPDATE subscriptions SET frequency = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![frequency, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(category_id) = &request.category_id {
+        conn.execute(
+            "UPDATE subscriptions SET category_id = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![category_id, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(account_id) = &request.account_id {
+        conn.execute(
+            "UPDATE subscriptions SET account_id = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![account_id, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(start_date) = &request.start_date {
+        conn.execute(
+            "UPDATE subscriptions SET start_date = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![start_date, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(is_active) = request.is_active {
+        let active = if is_active { 1 } else { 0 };
+        conn.execute(
+            "UPDATE subscriptions SET is_active = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![active, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    get_subscription_by_id(&conn, &request.id)
+}
+
+#[tauri::command]
+pub fn delete_subscription(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE subscriptions SET deleted_at = datetime('now') WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn get_subscription_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Subscription, String> {
+    conn.query_row(
+        "SELECT id, name, amount, currency, frequency, category_id, account_id, start_date, is_active, created_at, updated_at
+         FROM subscriptions WHERE id = ?1 AND deleted_at IS NULL",
+        params![id],
+        |row| {
+            Ok(Subscription {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                amount: row.get(2)?,
+                currency: row.get(3)?,
+                frequency: row.get(4)?,
+                category_id: row.get(5)?,
+                account_id: row.get(6)?,
+                start_date: row.get(7)?,
+                is_active: row.get::<_, i32>(8)? == 1,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 // ── Theme ────────────────────────────────────────────────────────

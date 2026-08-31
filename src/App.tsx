@@ -4,6 +4,7 @@ import { OverviewScreen } from "./features/overview/OverviewScreen";
 import { TransactionsScreen } from "./features/transactions/TransactionsScreen";
 import { AccountsScreen } from "./features/accounts/AccountsScreen";
 import { CategoriesScreen } from "./features/categories/CategoriesScreen";
+import { SubscriptionsScreen } from "./features/subscriptions/SubscriptionsScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { CommandPalette } from "./components/CommandPalette";
 import type { View } from "./types";
@@ -12,6 +13,7 @@ import {
   ArrowLeftRight,
   Wallet,
   Tag,
+  Repeat,
   Settings,
   Command,
   PanelLeftClose,
@@ -24,6 +26,7 @@ const NAV_ITEMS: { view: View; label: string; shortcut: string; icon: LucideIcon
   { view: "transactions", label: "Transactions", shortcut: "Ctrl+T", icon: ArrowLeftRight },
   { view: "accounts", label: "Accounts", shortcut: "Ctrl+A", icon: Wallet },
   { view: "categories", label: "Categories", shortcut: "Ctrl+C", icon: Tag },
+  { view: "subscriptions", label: "Subscriptions", shortcut: "Ctrl+U", icon: Repeat },
   { view: "settings", label: "Settings", shortcut: "Ctrl+S", icon: Settings },
 ];
 
@@ -87,6 +90,7 @@ export default function App() {
           t: "transactions",
           a: "accounts",
           c: "categories",
+          u: "subscriptions",
           s: "settings",
         };
         if (viewMap[e.key]) {
@@ -113,6 +117,8 @@ export default function App() {
         return <AccountsScreen />;
       case "categories":
         return <CategoriesScreen />;
+      case "subscriptions":
+        return <SubscriptionsScreen />;
       case "settings":
         return <SettingsScreen />;
     }
@@ -196,6 +202,7 @@ export default function App() {
           if (action === "add-transaction") setView("transactions");
           else if (action === "add-account") setView("accounts");
           else if (action === "add-category") setView("categories");
+          else if (action === "add-subscription") setView("subscriptions");
         }}
       />
     </div>

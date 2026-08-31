@@ -28,10 +28,12 @@ export function CommandPalette({
     { id: "transactions", label: "Go to Transactions", shortcut: "Ctrl+T", action: () => onNavigate("transactions") },
     { id: "accounts", label: "Go to Accounts", shortcut: "Ctrl+A", action: () => onNavigate("accounts") },
     { id: "categories", label: "Go to Categories", shortcut: "Ctrl+C", action: () => onNavigate("categories") },
+    { id: "subscriptions", label: "Go to Subscriptions", shortcut: "Ctrl+U", action: () => onNavigate("subscriptions") },
     { id: "settings", label: "Go to Settings", shortcut: "Ctrl+S", action: () => onNavigate("settings") },
     { id: "add-transaction", label: "Add Transaction", action: () => onAction("add-transaction") },
     { id: "add-account", label: "Add Account", action: () => onAction("add-account") },
     { id: "add-category", label: "Add Category", action: () => onAction("add-category") },
+    { id: "add-subscription", label: "Add Subscription", action: () => onAction("add-subscription") },
   ];
 
   const filtered = commands.filter((c) =>

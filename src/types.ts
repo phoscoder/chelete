@@ -68,6 +68,7 @@ export type View =
   | "transactions"
   | "accounts"
   | "categories"
+  | "subscriptions"
   | "settings";
 
 export interface CreateAccountRequest {
@@ -97,4 +98,28 @@ export interface CreateCategoryRequest {
   category_type: string;
   icon?: string;
   color?: string;
+}
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  frequency: string;
+  category_id: string | null;
+  account_id: string | null;
+  start_date: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSubscriptionRequest {
+  name: string;
+  amount: number;
+  currency: string;
+  frequency: string;
+  category_id?: string;
+  account_id?: string;
+  start_date?: string;
 }

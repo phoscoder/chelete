@@ -78,6 +78,27 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id);
         CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
         CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
+
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'USD',
+            frequency TEXT NOT NULL DEFAULT 'monthly',
+            category_id TEXT,
+            account_id TEXT,
+            start_date TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            deleted_at TEXT,
+            FOREIGN KEY (category_id) REFERENCES categories(id),
+            FOREIGN KEY (account_id) REFERENCES accounts(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_category ON subscriptions(category_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_account ON subscriptions(account_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_frequency ON subscriptions(frequency);
         ",
     )?;
 

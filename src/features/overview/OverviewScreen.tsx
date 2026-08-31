@@ -22,6 +22,7 @@ import {
 } from "../../components/DateFilter";
 import { DonutChart } from "../../components/DonutChart";
 import { Pagination, paginate } from "../../components/Pagination";
+import { CategoryIcon } from "../../components/CategoryIcons";
 
 export function OverviewScreen() {
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -374,69 +375,4 @@ export function OverviewScreen() {
   );
 }
 
-function CategoryIcon({
-  name,
-  size = 14,
-  style,
-}: {
-  name: string;
-  size?: number;
-  style?: React.CSSProperties;
-}) {
-  const icons = CATEGORY_ICONS;
-  const iconEntry = icons.find((i) => i.name === name);
-  if (iconEntry) {
-    const Icon = iconEntry.icon;
-    return <Icon size={size} style={style} />;
-  }
-  return null;
-}
 
-import {
-  ShoppingCart,
-  Car,
-  Briefcase,
-  Film,
-  ShoppingBag,
-  Zap,
-  Heart,
-  BookOpen,
-  Coffee,
-  Plane,
-  Home,
-  Utensils,
-  Wifi,
-  Smartphone,
-  Music,
-  Gamepad2,
-  Gift,
-  Stethoscope,
-  GraduationCap,
-  Building2,
-  type LucideIcon,
-} from "lucide-react";
-
-const CATEGORY_ICONS: { name: string; icon: LucideIcon }[] = [
-  { name: "utensils", icon: Utensils },
-  { name: "car", icon: Car },
-  { name: "briefcase", icon: Briefcase },
-  { name: "film", icon: Film },
-  { name: "shopping-bag", icon: ShoppingBag },
-  { name: "zap", icon: Zap },
-  { name: "heart", icon: Heart },
-  { name: "book-open", icon: BookOpen },
-  { name: "coffee", icon: Coffee },
-  { name: "plane", icon: Plane },
-  { name: "home", icon: Home },
-  { name: "wifi", icon: Wifi },
-  { name: "smartphone", icon: Smartphone },
-  { name: "music", icon: Music },
-  { name: "gamepad-2", icon: Gamepad2 },
-  { name: "gift", icon: Gift },
-  { name: "stethoscope", icon: Stethoscope },
-  { name: "graduation-cap", icon: GraduationCap },
-  { name: "building-2", icon: Building2 },
-  { name: "shopping-cart", icon: ShoppingCart },
-];
-
-export { CATEGORY_ICONS };

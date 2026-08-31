@@ -82,7 +82,8 @@ export function TransactionsScreen() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [transactionPage, setTransactionPage] = useState(1);
-  const TRANSACTIONS_PER_PAGE = 10;
+  const [transactionsPerPage, setTransactionsPerPage] = useState(25);
+  const PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 60, 80, 100];
 
   const load = () => {
     api.getTransactions().then(setTransactions);
@@ -105,11 +106,11 @@ export function TransactionsScreen() {
 
   useEffect(() => {
     setTransactionPage(1);
-  }, [dateFilter, customStart, customEnd]);
+  }, [dateFilter, customStart, customEnd, transactionsPerPage]);
 
   const paginatedTransactions = useMemo(
-    () => paginate(filteredTransactions, transactionPage, TRANSACTIONS_PER_PAGE),
-    [filteredTransactions, transactionPage]
+    () => paginate(filteredTransactions, transactionPage, transactionsPerPage),
+    [filteredTransactions, transactionPage, transactionsPerPage]
   );
 
   return (
@@ -224,12 +225,29 @@ export function TransactionsScreen() {
               </tbody>
             </table>
           </div>
-          <Pagination
-            page={transactionPage}
-            perPage={TRANSACTIONS_PER_PAGE}
-            total={filteredTransactions.length}
-            onPageChange={setTransactionPage}
-          />
+          <div className="pagination">
+            <div className="pagination-per-page">
+              <span>Show</span>
+              <select
+                className="form-select"
+                value={transactionsPerPage}
+                onChange={(e) => setTransactionsPerPage(Number(e.target.value))}
+              >
+                {PER_PAGE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <span>per page</span>
+            </div>
+            <Pagination
+              page={transactionPage}
+              perPage={transactionsPerPage}
+              total={filteredTransactions.length}
+              onPageChange={setTransactionPage}
+            />
+          </div>
         </>
       )}
     </div>

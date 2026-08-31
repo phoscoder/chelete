@@ -71,6 +71,7 @@ git push origin main --tags  # Triggers GitHub Actions release
 - **Victor Phos** — The Architect & QA
 - **ChatGPT** — For planning
 - **MiMo V2.5** — For implementation
+- **Kimi K2.7 Code** — For implementation
 
 ## License
 

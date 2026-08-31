@@ -1235,3 +1235,19 @@ tr:hover td {
   color: var(--chelete-fg-muted);
   font-variant-numeric: tabular-nums;
 }
+
+.pagination-per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--chelete-fg-muted);
+}
+
+.pagination-per-page .form-select {
+  min-width: 64px;
+  width: auto;
+  padding: 4px 24px 4px 8px;
+  font-size: 12px;
+  height: 26px;
+}

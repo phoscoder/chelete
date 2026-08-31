@@ -2,74 +2,9 @@ import { useEffect, useState } from "react";
 import { api } from "../../services/api";
 import type { Category } from "../../types";
 import {
-  ShoppingCart,
-  Car,
-  Briefcase,
-  Film,
-  ShoppingBag,
-  Zap,
-  Heart,
-  BookOpen,
-  Coffee,
-  Plane,
-  Home,
-  Utensils,
-  Wifi,
-  Smartphone,
-  Music,
-  Gamepad2,
-  Gift,
-  Stethoscope,
-  GraduationCap,
-  Building2,
-  PiggyBank,
-  CreditCard,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
-
-const CATEGORY_ICONS: { name: string; icon: LucideIcon; label: string }[] = [
-  { name: "utensils", icon: Utensils, label: "Food" },
-  { name: "car", icon: Car, label: "Car" },
-  { name: "briefcase", icon: Briefcase, label: "Work" },
-  { name: "film", icon: Film, label: "Film" },
-  { name: "shopping-bag", icon: ShoppingBag, label: "Shopping" },
-  { name: "zap", icon: Zap, label: "Bills" },
-  { name: "heart", icon: Heart, label: "Health" },
-  { name: "book-open", icon: BookOpen, label: "Education" },
-  { name: "coffee", icon: Coffee, label: "Coffee" },
-  { name: "plane", icon: Plane, label: "Travel" },
-  { name: "home", icon: Home, label: "Home" },
-  { name: "shopping-cart", icon: ShoppingCart, label: "Cart" },
-  { name: "wifi", icon: Wifi, label: "Internet" },
-  { name: "smartphone", icon: Smartphone, label: "Phone" },
-  { name: "music", icon: Music, label: "Music" },
-  { name: "gamepad-2", icon: Gamepad2, label: "Gaming" },
-  { name: "gift", icon: Gift, label: "Gift" },
-  { name: "stethoscope", icon: Stethoscope, label: "Medical" },
-  { name: "graduation-cap", icon: GraduationCap, label: "School" },
-  { name: "building-2", icon: Building2, label: "Office" },
-  { name: "piggy-bank", icon: PiggyBank, label: "Savings" },
-  { name: "credit-card", icon: CreditCard, label: "Credit" },
-  { name: "wallet", icon: Wallet, label: "Wallet" },
-];
-
-function CategoryIcon({
-  name,
-  size = 14,
-  style,
-}: {
-  name: string;
-  size?: number;
-  style?: React.CSSProperties;
-}) {
-  const iconEntry = CATEGORY_ICONS.find((i) => i.name === name);
-  if (iconEntry) {
-    const Icon = iconEntry.icon;
-    return <Icon size={size} style={style} />;
-  }
-  return null;
-}
+  CATEGORY_ICONS,
+  CategoryIcon,
+} from "../../components/CategoryIcons";
 
 export function CategoriesScreen() {
   const [categories, setCategories] = useState<Category[]>([]);

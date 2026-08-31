@@ -8,6 +8,7 @@ import {
   isDateInRange,
   type DateFilterValue,
 } from "../../components/DateFilter";
+import { Pagination, paginate } from "../../components/Pagination";
 import {
   ShoppingCart,
   Car,
@@ -80,6 +81,8 @@ export function TransactionsScreen() {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [transactionPage, setTransactionPage] = useState(1);
+  const TRANSACTIONS_PER_PAGE = 10;
 
   const load = () => {
     api.getTransactions().then(setTransactions);
@@ -99,6 +102,15 @@ export function TransactionsScreen() {
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => isDateInRange(t.transaction_date, start, end));
   }, [transactions, start, end]);
+
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [dateFilter, customStart, customEnd]);
+
+  const paginatedTransactions = useMemo(
+    () => paginate(filteredTransactions, transactionPage, TRANSACTIONS_PER_PAGE),
+    [filteredTransactions, transactionPage]
+  );
 
   return (
     <div>
@@ -136,6 +148,7 @@ export function TransactionsScreen() {
             textAlign: "center",
             padding: "48px 0",
             color: "var(--chelete-fg-muted)",
+            marginTop: 16,
           }}
         >
           {transactions.length === 0
@@ -160,19 +173,20 @@ export function TransactionsScreen() {
           )}
         </div>
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Account</th>
-                <th style={{ textAlign: "right" }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((t) => {
+        <>
+          <div className="table-container" style={{ marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Account</th>
+                  <th style={{ textAlign: "right" }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedTransactions.map((t) => {
                 const cat = t.category_id ? categoryMap[t.category_id] : null;
                 return (
                   <tr key={t.id}>
@@ -207,9 +221,16 @@ export function TransactionsScreen() {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={transactionPage}
+            perPage={TRANSACTIONS_PER_PAGE}
+            total={filteredTransactions.length}
+            onPageChange={setTransactionPage}
+          />
+        </>
       )}
     </div>
   );

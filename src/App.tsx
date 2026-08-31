@@ -132,7 +132,6 @@ export default function App() {
             <span className="element-number">115</span>
             <span className="element-symbol">Ch</span>
           </div>
-          {!collapsed && <span className="element-name">Chelete</span>}
         </div>
         <nav>
           {NAV_ITEMS.map((item) => {

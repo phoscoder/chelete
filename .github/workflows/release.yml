@@ -53,6 +53,7 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           cp chelete AppDir/usr/bin/
+          cp ../../icons/128x128.png AppDir/chelete.png
           cp ../../icons/128x128.png AppDir/usr/share/icons/hicolor/256x256/apps/chelete.png
           cat > AppDir/chelete.desktop << EOF
           [Desktop Entry]
@@ -60,8 +61,9 @@ jobs:
           Exec=chelete
           Icon=chelete
           Type=Application
-          Categories=Finance;
+          Categories=Office;Finance;
           EOF
+          cp AppDir/chelete.desktop AppDir/usr/share/applications/chelete.desktop
           cat > AppDir/AppRun << 'APPEOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "${0}")")"

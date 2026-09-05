@@ -1025,6 +1025,86 @@ pub fn delete_subscription(state: State<'_, DbState>, id: String) -> Result<(), 
     Ok(())
 }
 
+#[tauri::command]
+pub fn delete_subscriptions(state: State<'_, DbState>, ids: Vec<String>) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+    let in_clause = placeholders.join(",");
+    conn.execute(
+        &format!("UPDATE subscriptions SET deleted_at = datetime('now') WHERE id IN ({}) AND deleted_at IS NULL", in_clause),
+        rusqlite::params_from_iter(ids.iter()),
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn transfer(
+    state: State<'_, DbState>,
+    from_account_id: String,
+    to_account_id: String,
+    amount: i64,
+    currency: String,
+    notes: Option<String>,
+) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let now = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let description = format!("Transfer to {}", to_account_id);
+    let reverse_description = format!("Transfer from {}", from_account_id);
+
+    // Withdraw from source
+    tx.execute(
+        "INSERT INTO transactions (id, account_id, category_id, transaction_type, amount, currency, description, merchant, notes, transaction_date)
+         VALUES (?1, ?2, NULL, 'expense', ?3, ?4, ?5, NULL, ?6, ?7)",
+        params![
+            generate_id(),
+            from_account_id,
+            amount,
+            currency,
+            description,
+            notes.clone().unwrap_or_default(),
+            now,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Deposit to destination
+    tx.execute(
+        "INSERT INTO transactions (id, account_id, category_id, transaction_type, amount, currency, description, merchant, notes, transaction_date)
+         VALUES (?1, ?2, NULL, 'income', ?3, ?4, ?5, NULL, ?6, ?7)",
+        params![
+            generate_id(),
+            to_account_id,
+            amount,
+            currency,
+            reverse_description,
+            notes.unwrap_or_default(),
+            now,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Update balances directly to keep them consistent
+    tx.execute(
+        "UPDATE accounts SET balance = balance - ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![amount, from_account_id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![amount, to_account_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn get_subscription_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Subscription, String> {
     conn.query_row(
         "SELECT id, name, amount, currency, frequency, category_id, account_id, start_date, is_active, created_at, updated_at

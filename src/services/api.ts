@@ -56,6 +56,24 @@ export const api = {
     invoke<Subscription>("update_subscription", { request }),
   deleteSubscription: (id: string) =>
     invoke<void>("delete_subscription", { id }),
+  deleteSubscriptions: (ids: string[]) =>
+    invoke<void>("delete_subscriptions", { ids }),
+
+  // Transfers
+  transfer: (request: {
+    from_account_id: string;
+    to_account_id: string;
+    amount: number;
+    currency: string;
+    notes?: string;
+  }) =>
+    invoke<void>("transfer", {
+      from_account_id: request.from_account_id,
+      to_account_id: request.to_account_id,
+      amount: request.amount,
+      currency: request.currency,
+      notes: request.notes,
+    }),
 
   // Overview
   getOverview: () => invoke<Overview>("get_overview"),

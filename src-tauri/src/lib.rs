@@ -36,6 +36,8 @@ pub fn run() {
             commands::create_subscription,
             commands::update_subscription,
             commands::delete_subscription,
+            commands::delete_subscriptions,
+            commands::transfer,
             commands::get_overview,
             commands::get_omarchy_theme,
             commands::open_csv_file_dialog,

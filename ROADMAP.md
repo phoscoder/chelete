@@ -30,7 +30,7 @@ Features that add more insight and automation.
 - [ ] **Category trends**
   - View spending per category across the last 6–12 months.
 
-- [ ] **Import transactions**
+- [x] **Import transactions**
   - Upload CSV or bank statements and map columns to Chelete fields.
   - Detect duplicates during import.
 

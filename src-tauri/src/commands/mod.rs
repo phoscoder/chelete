@@ -1296,6 +1296,148 @@ fn is_duplicate(
     })
 }
 
+// ── Export ───────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExportData {
+    pub accounts: Vec<Account>,
+    pub categories: Vec<Category>,
+    pub transactions: Vec<Transaction>,
+    pub subscriptions: Vec<Subscription>,
+}
+
+#[tauri::command]
+pub async fn save_file_dialog(
+    app: tauri::AppHandle,
+    default_name: String,
+    extension: String,
+) -> Result<Option<String>, String> {
+    let file_path = app
+        .dialog()
+        .file()
+        .set_file_name(default_name)
+        .add_filter(&format!("{} files", extension.to_uppercase()),
+            &[extension.trim_start_matches('.')],
+        )
+        .blocking_save_file();
+
+    match file_path {
+        Some(path) => {
+            let path_buf = path.into_path().map_err(|e| e.to_string())?;
+            Ok(Some(path_buf.to_string_lossy().to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub fn write_export_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| format!("Failed to write file: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn export_data(state: State<'_, DbState>) -> Result<ExportData, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    Ok(ExportData {
+        accounts: get_accounts(&conn)?,
+        categories: get_categories(&conn)?,
+        transactions: get_transactions(&conn)?,
+        subscriptions: get_subscriptions(&conn)?,
+    })
+}
+
+fn get_accounts(conn: &rusqlite::Connection) -> Result<Vec<Account>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, account_type, currency, balance, color, icon, is_active, sort_order, created_at, updated_at
+             FROM accounts WHERE deleted_at IS NULL ORDER BY sort_order",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let accounts = stmt
+        .query_map([], |row| {
+            Ok(Account {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                account_type: row.get(2)?,
+                currency: row.get(3)?,
+                balance: row.get(4)?,
+                color: row.get(5)?,
+                icon: row.get(6)?,
+                is_active: row.get::<_, i32>(7)? == 1,
+                sort_order: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(accounts)
+}
+
+fn get_categories(conn: &rusqlite::Connection) -> Result<Vec<Category>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, parent_id, category_type, icon, color, sort_order, created_at, updated_at
+             FROM categories WHERE deleted_at IS NULL ORDER BY sort_order",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let categories = stmt
+        .query_map([], |row| {
+            Ok(Category {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                parent_id: row.get(2)?,
+                category_type: row.get(3)?,
+                icon: row.get(4)?,
+                color: row.get(5)?,
+                sort_order: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(categories)
+}
+
+fn get_subscriptions(conn: &rusqlite::Connection) -> Result<Vec<Subscription>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, amount, currency, frequency, category_id, account_id, start_date, is_active, created_at, updated_at
+             FROM subscriptions WHERE deleted_at IS NULL ORDER BY name",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let subscriptions = stmt
+        .query_map([], |row| {
+            Ok(Subscription {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                amount: row.get(2)?,
+                currency: row.get(3)?,
+                frequency: row.get(4)?,
+                category_id: row.get(5)?,
+                account_id: row.get(6)?,
+                start_date: row.get(7)?,
+                is_active: row.get::<_, i32>(8)? == 1,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(subscriptions)
+}
+
 // ── Theme ────────────────────────────────────────────────────────
 
 #[tauri::command]

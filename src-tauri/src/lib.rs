@@ -41,6 +41,9 @@ pub fn run() {
             commands::open_csv_file_dialog,
             commands::preview_csv_import,
             commands::import_transactions,
+            commands::export_data,
+            commands::save_file_dialog,
+            commands::write_export_file,
             seed::seed_database_command,
         ])
         .run(tauri::generate_context!())

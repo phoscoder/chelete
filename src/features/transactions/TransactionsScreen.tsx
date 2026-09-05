@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { api } from "../../services/api";
 import { formatMoney, formatDate } from "../../services/format";
-import type { Transaction, Account, Category } from "../../types";
+import type { Transaction, Account, Category, ExportData } from "../../types";
 import { CsvImportDialog } from "./CsvImportDialog";
 import {
   DateFilter,
@@ -89,18 +89,21 @@ export function TransactionsScreen() {
   const [transactionPage, setTransactionPage] = useState(1);
   const [transactionsPerPage, setTransactionsPerPage] = useState(25);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exportData, setExportData] = useState<ExportData | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{
     ids: string[];
     count: number;
   } | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 60, 80, 100];
 
   const load = () => {
     api.getTransactions().then(setTransactions);
     api.getAccounts().then(setAccounts);
     api.getCategories().then(setCategories);
+    api.exportData().then(setExportData);
   };
 
   useEffect(() => {
@@ -193,6 +196,9 @@ export function TransactionsScreen() {
               <button className="btn" onClick={() => setShowImport(true)}>
                 Import CSV
               </button>
+              <button className="btn" onClick={() => setShowExport(true)}>
+                Export Data
+              </button>
               <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
                 + Add
               </button>
@@ -241,6 +247,14 @@ export function TransactionsScreen() {
           account={accountMap[viewingTransaction.account_id]}
           category={viewingTransaction.category_id ? categoryMap[viewingTransaction.category_id] : null}
           onClose={() => setViewingTransaction(null)}
+        />
+      )}
+
+      {showExport && exportData && (
+        <ExportDialog
+          data={exportData}
+          onDone={() => setShowExport(false)}
+          onCancel={() => setShowExport(false)}
         />
       )}
 
@@ -453,6 +467,123 @@ export function TransactionsScreen() {
       )}
     </div>
   );
+}
+
+function ExportDialog({
+  onDone,
+  onCancel,
+  data,
+}: {
+  onDone: () => void;
+  onCancel: () => void;
+  data: ExportData;
+}) {
+  const [format, setFormat] = useState<"json" | "csv">("csv");
+
+  const handleExport = async () => {
+    if (format === "json") {
+      const contents = JSON.stringify(data, null, 2);
+      const path = await api.saveFileDialog("chelete-export.json", "json");
+      if (path) await api.writeExportFile(path, contents);
+    } else {
+      const contents = transactionsToCsv(data.transactions, data.accounts, data.categories);
+      const path = await api.saveFileDialog("chelete-transactions.csv", "csv");
+      if (path) await api.writeExportFile(path, contents);
+    }
+    onDone();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-title">Export Data</div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleExport();
+          }}
+        >
+          <div className="form-group">
+            <label className="form-label">Format</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className={`btn ${format === "csv" ? "btn-primary" : ""}`}
+                onClick={() => setFormat("csv")}
+                style={{ flex: 1 }}
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                className={`btn ${format === "json" ? "btn-primary" : ""}`}
+                onClick={() => setFormat("json")}
+                style={{ flex: 1 }}
+              >
+                JSON
+              </button>
+            </div>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="btn" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Export
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function escapeCsvField(value: unknown): string {
+  const str = value == null ? "" : String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function transactionsToCsv(
+  transactions: Transaction[],
+  accounts: Account[],
+  categories: Category[]
+): string {
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
+  const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+
+  const headers = [
+    "id",
+    "transaction_date",
+    "description",
+    "merchant",
+    "transaction_type",
+    "amount",
+    "currency",
+    "account_name",
+    "category_name",
+    "notes",
+    "created_at",
+    "updated_at",
+  ];
+  const rows = transactions.map((t) => [
+    t.id,
+    t.transaction_date,
+    t.description,
+    t.merchant ?? "",
+    t.transaction_type,
+    (t.amount / 100).toFixed(2),
+    t.currency,
+    accountMap[t.account_id] ?? t.account_id,
+    t.category_id ? categoryMap[t.category_id] ?? t.category_id : "",
+    t.notes ?? "",
+    t.created_at,
+    t.updated_at,
+  ]);
+  return [headers, ...rows].map((row) => row.map(escapeCsvField).join(",")).join("\n");
 }
 
 function ViewTransactionDialog({

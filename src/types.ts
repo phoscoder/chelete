@@ -179,3 +179,10 @@ export interface ImportResult {
   skipped: number;
   errors: string[];
 }
+
+export interface ExportData {
+  accounts: Account[];
+  categories: Category[];
+  transactions: Transaction[];
+  subscriptions: Subscription[];
+}

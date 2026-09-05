@@ -14,6 +14,7 @@ import type {
   CsvPreview,
   ImportOptions,
   ImportResult,
+  ExportData,
 } from "../types";
 
 export const api = {
@@ -70,4 +71,11 @@ export const api = {
     mapping: CsvMapping,
     options: ImportOptions
   ) => invoke<ImportResult>("import_transactions", { path, mapping, options }),
+
+  // Export
+  exportData: () => invoke<ExportData>("export_data"),
+  saveFileDialog: (defaultName: string, extension: string) =>
+    invoke<string | null>("save_file_dialog", { defaultName, extension }),
+  writeExportFile: (path: string, contents: string) =>
+    invoke<void>("write_export_file", { path, contents }),
 };

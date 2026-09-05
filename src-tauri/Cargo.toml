@@ -26,6 +26,8 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
 dirs = "5"
+tauri-plugin-dialog = "2.7.3"
+csv = "1.4.0"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

@@ -516,25 +516,62 @@ pub fn update_transaction(
 #[tauri::command]
 pub fn delete_transaction(state: State<'_, DbState>, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let txn = get_transaction_by_id(&conn, &id)?;
+    delete_transactions_inner(&conn, &[id])
+}
 
-    // Reverse balance change
-    let change = if txn.transaction_type == "income" {
-        -txn.amount
-    } else {
-        txn.amount
-    };
-    conn.execute(
-        "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
-        params![change, txn.account_id],
-    )
-    .map_err(|e| e.to_string())?;
+#[tauri::command]
+pub fn delete_transactions(state: State<'_, DbState>, ids: Vec<String>) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    delete_transactions_inner(&conn, &ids)
+}
 
-    conn.execute(
-        "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?1",
-        params![id],
-    )
-    .map_err(|e| e.to_string())?;
+fn delete_transactions_inner(conn: &rusqlite::Connection, ids: &[String]) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+    let in_clause = placeholders.join(",");
+
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT id, account_id, transaction_type, amount FROM transactions WHERE id IN ({}) AND deleted_at IS NULL",
+            in_clause
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    for (id, account_id, transaction_type, amount) in rows {
+        let change = if transaction_type == "income" {
+            -amount
+        } else {
+            amount
+        };
+        conn.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![change, account_id],
+        )
+        .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?1",
+            params![id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
     Ok(())
 }
 

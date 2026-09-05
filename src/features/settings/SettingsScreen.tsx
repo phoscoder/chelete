@@ -1,7 +1,7 @@
 import { useTheme } from "../../hooks/useTheme";
 import { useEffect, useState } from "react";
 import { api } from "../../services/api";
-import type { Transaction } from "../../types";
+import type { Transaction, Account, Category } from "../../types";
 
 export function SettingsScreen() {
   const theme = useTheme();
@@ -26,7 +26,7 @@ export function SettingsScreen() {
 
   const handleExportCsv = async () => {
     const data = await api.exportData();
-    const contents = transactionsToCsv(data.transactions);
+    const contents = transactionsToCsv(data.transactions, data.accounts, data.categories);
     const path = await api.saveFileDialog("chelete-transactions.csv", "csv");
     if (path) {
       await api.writeExportFile(path, contents);
@@ -135,7 +135,14 @@ function escapeCsvField(value: unknown): string {
   return str;
 }
 
-function transactionsToCsv(transactions: Transaction[]): string {
+function transactionsToCsv(
+  transactions: Transaction[],
+  accounts: Account[],
+  categories: Category[]
+): string {
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
+  const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+
   const headers = [
     "id",
     "transaction_date",
@@ -144,8 +151,8 @@ function transactionsToCsv(transactions: Transaction[]): string {
     "transaction_type",
     "amount_cents",
     "currency",
-    "account_id",
-    "category_id",
+    "account_name",
+    "category_name",
     "notes",
     "created_at",
     "updated_at",
@@ -158,8 +165,8 @@ function transactionsToCsv(transactions: Transaction[]): string {
     t.transaction_type,
     t.amount,
     t.currency,
-    t.account_id,
-    t.category_id ?? "",
+    accountMap[t.account_id] ?? t.account_id,
+    t.category_id ? categoryMap[t.category_id] ?? t.category_id : "",
     t.notes ?? "",
     t.created_at,
     t.updated_at,

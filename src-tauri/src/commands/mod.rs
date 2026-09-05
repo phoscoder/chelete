@@ -1340,14 +1340,14 @@ pub fn write_export_file(path: String, contents: String) -> Result<(), String> {
 pub fn export_data(state: State<'_, DbState>) -> Result<ExportData, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     Ok(ExportData {
-        accounts: get_accounts(&conn)?,
-        categories: get_categories(&conn)?,
-        transactions: get_transactions(&conn)?,
-        subscriptions: get_subscriptions(&conn)?,
+        accounts: load_accounts_for_export(&conn)?,
+        categories: load_categories_for_export(&conn)?,
+        transactions: load_transactions_for_export(&conn)?,
+        subscriptions: load_subscriptions_for_export(&conn)?,
     })
 }
 
-fn get_accounts(conn: &rusqlite::Connection) -> Result<Vec<Account>, String> {
+fn load_accounts_for_export(conn: &rusqlite::Connection) -> Result<Vec<Account>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, account_type, currency, balance, color, icon, is_active, sort_order, created_at, updated_at
@@ -1378,7 +1378,7 @@ fn get_accounts(conn: &rusqlite::Connection) -> Result<Vec<Account>, String> {
     Ok(accounts)
 }
 
-fn get_categories(conn: &rusqlite::Connection) -> Result<Vec<Category>, String> {
+fn load_categories_for_export(conn: &rusqlite::Connection) -> Result<Vec<Category>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, parent_id, category_type, icon, color, sort_order, created_at, updated_at
@@ -1407,7 +1407,37 @@ fn get_categories(conn: &rusqlite::Connection) -> Result<Vec<Category>, String> 
     Ok(categories)
 }
 
-fn get_subscriptions(conn: &rusqlite::Connection) -> Result<Vec<Subscription>, String> {
+fn load_transactions_for_export(conn: &rusqlite::Connection) -> Result<Vec<Transaction>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, account_id, category_id, transaction_type, amount, currency, description, merchant, notes, transaction_date, created_at, updated_at
+             FROM transactions WHERE deleted_at IS NULL ORDER BY transaction_date DESC, created_at DESC",
+        )
+        .map_err(|e| e.to_string())?;
+    let transactions = stmt
+        .query_map([], |row| {
+            Ok(Transaction {
+                id: row.get(0)?,
+                account_id: row.get(1)?,
+                category_id: row.get(2)?,
+                transaction_type: row.get(3)?,
+                amount: row.get(4)?,
+                currency: row.get(5)?,
+                description: row.get(6)?,
+                merchant: row.get(7)?,
+                notes: row.get(8)?,
+                transaction_date: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(transactions)
+}
+
+fn load_subscriptions_for_export(conn: &rusqlite::Connection) -> Result<Vec<Subscription>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, name, amount, currency, frequency, category_id, account_id, start_date, is_active, created_at, updated_at

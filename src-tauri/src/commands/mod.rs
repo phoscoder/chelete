@@ -1,7 +1,9 @@
 use crate::database::DbState;
+use crate::import::{CsvMapping, CsvPreview, ImportResult, parse_csv_preview, parse_csv_rows};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Account {
@@ -994,6 +996,267 @@ fn get_subscription_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Subsc
         },
     )
     .map_err(|e| e.to_string())
+}
+
+// ── Import ───────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn open_csv_file_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let file_path = app
+        .dialog()
+        .file()
+        .add_filter("CSV files", &["csv"])
+        .blocking_pick_file();
+
+    match file_path {
+        Some(path) => {
+            let path_buf = path.into_path().map_err(|e| e.to_string())?;
+            Ok(Some(path_buf.to_string_lossy().to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub fn preview_csv_import(
+    path: String,
+    mapping: CsvMapping,
+) -> Result<CsvPreview, String> {
+    parse_csv_preview(&path, &mapping)
+}
+
+#[tauri::command]
+pub fn import_transactions(
+    state: State<'_, DbState>,
+    path: String,
+    mapping: CsvMapping,
+    options: ImportOptions,
+) -> Result<ImportResult, String> {
+    let rows = parse_csv_rows(&path, &mapping)?;
+
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let accounts = load_accounts(&tx)?;
+    let categories = load_categories(&tx)?;
+    let existing = load_existing_transactions(&tx)?;
+
+    let mut imported = 0usize;
+    let mut skipped = 0usize;
+    let mut errors = Vec::new();
+
+    for row in rows {
+        if !row.errors.is_empty() {
+            errors.push(format!(
+                "Row {}: {}",
+                row.row_index,
+                row.errors.join("; ")
+            ));
+            continue;
+        }
+
+        let Some(account_id) = resolve_account(&row, &mapping, &accounts, &options) else {
+            errors.push(format!("Row {}: no account selected.", row.row_index));
+            continue;
+        };
+
+        let category_id = resolve_category(&row, &mapping, &categories);
+        let transaction_type = resolve_transaction_type(&row, &mapping);
+        let Some(transaction_type) = transaction_type else {
+            errors.push(format!(
+                "Row {}: could not determine transaction type.",
+                row.row_index
+            ));
+            continue;
+        };
+
+        let Some(date) = row.date.clone() else {
+            errors.push(format!("Row {}: date is required.", row.row_index));
+            continue;
+        };
+
+        let Some(description) = row.description.clone() else {
+            errors.push(format!(
+                "Row {}: description is required.",
+                row.row_index
+            ));
+            continue;
+        };
+
+        let Some(amount_cents) = row.amount_cents else {
+            errors.push(format!("Row {}: amount is required.", row.row_index));
+            continue;
+        };
+
+        if options.skip_duplicates && is_duplicate(&account_id, &date, amount_cents, &description, &existing) {
+            skipped += 1;
+            continue;
+        }
+
+        let id = generate_id();
+        let currency = row.currency.clone().unwrap_or_else(|| options.default_currency.clone().unwrap_or_else(|| "USD".to_string()));
+
+        tx.execute(
+            "INSERT INTO transactions (id, account_id, category_id, transaction_type, amount, currency, description, merchant, notes, transaction_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                id,
+                account_id,
+                category_id,
+                transaction_type,
+                amount_cents,
+                currency,
+                description,
+                row.merchant,
+                row.notes,
+                date,
+            ],
+        ).map_err(|e| e.to_string())?;
+
+        let balance_change = if transaction_type == "income" {
+            amount_cents
+        } else {
+            -amount_cents
+        };
+        tx.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![balance_change, account_id],
+        ).map_err(|e| e.to_string())?;
+
+        imported += 1;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(ImportResult {
+        imported,
+        skipped,
+        errors,
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImportOptions {
+    pub default_account_id: Option<String>,
+    pub default_category_id: Option<String>,
+    pub default_currency: Option<String>,
+    pub skip_duplicates: bool,
+}
+
+fn load_accounts(tx: &rusqlite::Transaction) -> Result<Vec<(String, String)>, String> {
+    let mut stmt = tx
+        .prepare("SELECT id, name FROM accounts WHERE deleted_at IS NULL")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+fn load_categories(tx: &rusqlite::Transaction) -> Result<Vec<(String, String, String)>, String> {
+    let mut stmt = tx
+        .prepare("SELECT id, name, category_type FROM categories WHERE deleted_at IS NULL")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+fn load_existing_transactions(
+    tx: &rusqlite::Transaction,
+) -> Result<Vec<(String, String, i64, String)>, String> {
+    let mut stmt = tx
+        .prepare("SELECT account_id, transaction_date, amount, description FROM transactions WHERE deleted_at IS NULL")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows)
+}
+
+fn resolve_account(
+    row: &crate::import::ParsedRow,
+    mapping: &CsvMapping,
+    accounts: &[(String, String)],
+    options: &ImportOptions,
+) -> Option<String> {
+    // Mapped account column takes precedence.
+    if let Some(name) = row.account.as_deref() {
+        let lower = name.to_lowercase();
+        if let Some((id, _)) = accounts.iter().find(|(_, n)| n.to_lowercase() == lower) {
+            return Some(id.clone());
+        }
+    }
+    // Default account from mapping.
+    mapping.default_account_id.clone().or_else(|| options.default_account_id.clone())
+}
+
+fn resolve_category(
+    row: &crate::import::ParsedRow,
+    mapping: &CsvMapping,
+    categories: &[(String, String, String)],
+) -> Option<String> {
+    if let Some(name) = row.category.as_deref() {
+        let lower = name.to_lowercase();
+        if let Some((id, _, _)) = categories.iter().find(|(_, n, _)| n.to_lowercase() == lower) {
+            return Some(id.clone());
+        }
+    }
+    mapping.default_category_id.clone()
+}
+
+fn resolve_transaction_type(
+    row: &crate::import::ParsedRow,
+    _mapping: &CsvMapping,
+) -> Option<String> {
+    if let Some(t) = row.transaction_type.as_deref() {
+        let normalized = t.trim().to_lowercase();
+        if normalized == "income" {
+            return Some("income".to_string());
+        } else if normalized == "expense" {
+            return Some("expense".to_string());
+        }
+    }
+
+    // If the amount came from a dedicated income/expense column, infer type from it.
+    match row.amount_source {
+        Some(crate::import::AmountSource::IncomeColumn) => Some("income".to_string()),
+        Some(crate::import::AmountSource::ExpenseColumn) => Some("expense".to_string()),
+        _ => None,
+    }
+}
+
+fn is_duplicate(
+    account_id: &str,
+    date: &str,
+    amount_cents: i64,
+    description: &str,
+    existing: &[(String, String, i64, String)],
+) -> bool {
+    let desc = description.trim().to_lowercase();
+    existing.iter().any(|(aid, d, a, de)| {
+        aid == account_id && d == date && *a == amount_cents && de.trim().to_lowercase() == desc
+    })
 }
 
 // ── Theme ────────────────────────────────────────────────────────

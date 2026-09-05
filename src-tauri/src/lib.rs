@@ -1,5 +1,6 @@
 mod commands;
 mod database;
+mod import;
 pub mod seed;
 mod theme;
 
@@ -10,6 +11,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
             let db_state = database::init_database(&app_handle)?;
@@ -35,6 +37,9 @@ pub fn run() {
             commands::delete_subscription,
             commands::get_overview,
             commands::get_omarchy_theme,
+            commands::open_csv_file_dialog,
+            commands::preview_csv_import,
+            commands::import_transactions,
             seed::seed_database_command,
         ])
         .run(tauri::generate_context!())

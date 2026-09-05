@@ -9,6 +9,7 @@ import type {
   CreateAccountRequest,
   CreateTransactionRequest,
   CreateCategoryRequest,
+  UpdateCategoryRequest,
   CreateSubscriptionRequest,
   CsvMapping,
   CsvPreview,
@@ -42,7 +43,7 @@ export const api = {
   getCategories: () => invoke<Category[]>("get_categories"),
   createCategory: (request: CreateCategoryRequest) =>
     invoke<Category>("create_category", { request }),
-  updateCategory: (request: { id: string } & Partial<Category>) =>
+  updateCategory: (request: UpdateCategoryRequest) =>
     invoke<Category>("update_category", { request }),
   deleteCategory: (id: string) =>
     invoke<void>("delete_category", { id }),

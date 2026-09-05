@@ -692,6 +692,20 @@ pub fn update_category(
         )
         .map_err(|e| e.to_string())?;
     }
+    if let Some(icon) = &request.icon {
+        conn.execute(
+            "UPDATE categories SET icon = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![icon, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    if let Some(color) = &request.color {
+        conn.execute(
+            "UPDATE categories SET color = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![color, request.id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     let category = get_category_by_id(&conn, &request.id)?;
     Ok(category)

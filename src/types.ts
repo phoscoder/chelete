@@ -100,6 +100,14 @@ export interface CreateCategoryRequest {
   color?: string;
 }
 
+export interface UpdateCategoryRequest {
+  id: string;
+  name?: string;
+  category_type?: string;
+  icon?: string;
+  color?: string;
+}
+
 export interface Subscription {
   id: string;
   name: string;

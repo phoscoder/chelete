@@ -92,6 +92,9 @@ pub struct CsvMapping {
     pub default_category_id: Option<String>,
     /// Default currency to use when the CSV has no currency column or the value is blank.
     pub default_currency: Option<String>,
+    /// Default transaction type to use when the CSV has no type column and no separate
+    /// income/expense amount columns.
+    pub default_transaction_type: Option<String>,
     /// Type normalization: e.g. {"debit" => "expense", "credit" => "income"}
     pub type_aliases: std::collections::HashMap<String, String>,
 }
@@ -103,6 +106,7 @@ impl Default for CsvMapping {
             default_account_id: None,
             default_category_id: None,
             default_currency: Some("USD".to_string()),
+            default_transaction_type: None,
             type_aliases: std::collections::HashMap::new(),
         }
     }

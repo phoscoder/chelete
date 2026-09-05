@@ -162,7 +162,8 @@ fn parse_record(
     let transaction_type = mapping
         .field_column(CsvField::Type)
         .and_then(|c| cells.get(c).copied())
-        .map(|v| normalize_type(v.trim(), mapping));
+        .map(|v| normalize_type(v.trim(), mapping))
+        .or_else(|| mapping.default_transaction_type.clone());
 
     let (amount_cents, amount_source, amount_error) = compute_amount(&cells, mapping);
     if let Some(err) = amount_error {
@@ -217,9 +218,12 @@ fn parse_record(
     }
     let has_type_source = transaction_type.is_some()
         || amount_source == Some(AmountSource::IncomeColumn)
-        || amount_source == Some(AmountSource::ExpenseColumn);
-    if !has_type_source && mapping.field_column(CsvField::Type).is_some() {
-        errors.push("Transaction type is required.".to_string());
+        || amount_source == Some(AmountSource::ExpenseColumn)
+        || mapping.default_transaction_type.is_some();
+    if !has_type_source {
+        errors.push(
+            "Transaction type is required. Map a Type column, separate Income/Expense amount columns, or set a default type.".to_string(),
+        );
     }
 
     ParsedRow {

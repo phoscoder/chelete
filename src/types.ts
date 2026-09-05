@@ -143,6 +143,7 @@ export interface CsvMapping {
   default_account_id?: string;
   default_category_id?: string;
   default_currency?: string;
+  default_transaction_type?: "income" | "expense";
   type_aliases: Record<string, string>;
 }
 

@@ -880,6 +880,30 @@ tr:hover td {
   border-color: var(--chelete-danger);
 }
 
+.type-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--chelete-radius);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+  border: 1px solid var(--chelete-border);
+  color: var(--chelete-fg-muted);
+}
+
+.type-tag.income {
+  color: var(--chelete-success);
+  border-color: var(--chelete-success);
+  background: color-mix(in srgb, var(--chelete-success) 10%, transparent);
+}
+
+.type-tag.expense {
+  color: var(--chelete-danger);
+  border-color: var(--chelete-danger);
+  background: color-mix(in srgb, var(--chelete-danger) 10%, transparent);
+}
+
 /* ── Forms ─────────────────────────────────────────────────── */
 
 .form-group {

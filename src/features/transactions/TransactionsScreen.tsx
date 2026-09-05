@@ -279,6 +279,7 @@ export function TransactionsScreen() {
                   </th>
                   <th>Date</th>
                   <th>Description</th>
+                  <th>Type</th>
                   <th>Category</th>
                   <th>Account</th>
                   <th style={{ textAlign: "right" }}>Amount</th>
@@ -302,6 +303,11 @@ export function TransactionsScreen() {
                         {formatDate(t.transaction_date)}
                       </td>
                       <td>{t.description}</td>
+                      <td>
+                        <span className={`type-tag ${t.transaction_type}`}>
+                          {t.transaction_type}
+                        </span>
+                      </td>
                       <td>
                         {cat ? (
                           <span className="category-tag">

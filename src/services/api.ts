@@ -68,8 +68,8 @@ export const api = {
     notes?: string;
   }) =>
     invoke<void>("transfer", {
-      from_account_id: request.from_account_id,
-      to_account_id: request.to_account_id,
+      fromAccountId: request.from_account_id,
+      toAccountId: request.to_account_id,
       amount: request.amount,
       currency: request.currency,
       notes: request.notes,

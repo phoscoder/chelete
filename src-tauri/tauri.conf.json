@@ -17,7 +17,10 @@
         "decorations": false
       }
     ],
-    "security": {}
+    "security": {
+      "csp": null,
+      "capabilities": ["default"]
+    }
   },
   "bundle": {
     "active": true,

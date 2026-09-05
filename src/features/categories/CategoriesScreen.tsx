@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../../services/api";
-import type { Category } from "../../types";
+import type { Category, Transaction } from "../../types";
 import {
   CATEGORY_ICONS,
   CategoryIcon,
@@ -8,10 +8,12 @@ import {
 
 export function CategoriesScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showAdd, setShowAdd] = useState(false);
 
   const load = () => {
     api.getCategories().then(setCategories);
+    api.getTransactions().then(setTransactions);
   };
 
   useEffect(() => {
@@ -24,6 +26,60 @@ export function CategoriesScreen() {
   const incomeCategories = categories.filter(
     (c) => c.category_type === "income"
   );
+
+  const transactionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    transactions.forEach((t) => {
+      if (t.category_id) {
+        counts[t.category_id] = (counts[t.category_id] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [transactions]);
+
+  const CategoryRow = ({ c }: { c: Category }) => {
+    const count = transactionCounts[c.id] || 0;
+    return (
+      <tr key={c.id}>
+        <td>
+          {c.icon && (
+            <CategoryIcon
+              name={c.icon}
+              size={14}
+              style={{
+                marginRight: 6,
+                verticalAlign: "middle",
+                color: c.color || "var(--chelete-fg-muted)",
+              }}
+            />
+          )}
+          {c.name}
+        </td>
+        <td style={{ textAlign: "center" }}>
+          <span
+            style={{
+              fontSize: 12,
+              color: count > 0 ? "var(--chelete-fg-muted)" : "var(--chelete-fg-subtle)",
+            }}
+          >
+            {count} {count === 1 ? "record" : "records"}
+          </span>
+        </td>
+        <td style={{ textAlign: "right" }}>
+          <button
+            className="btn"
+            style={{ fontSize: 11, padding: "2px 6px" }}
+            onClick={async () => {
+              await api.deleteCategory(c.id);
+              load();
+            }}
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div>
@@ -68,39 +124,13 @@ export function CategoriesScreen() {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th style={{ textAlign: "center" }}>Records</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {expenseCategories.map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        {c.icon && (
-                          <CategoryIcon
-                            name={c.icon}
-                            size={14}
-                            style={{
-                              marginRight: 6,
-                              verticalAlign: "middle",
-                              color: c.color || "var(--chelete-fg-muted)",
-                            }}
-                          />
-                        )}
-                        {c.name}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="btn"
-                          style={{ fontSize: 11, padding: "2px 6px" }}
-                          onClick={async () => {
-                            await api.deleteCategory(c.id);
-                            load();
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
+                    <CategoryRow key={c.id} c={c} />
                   ))}
                 </tbody>
               </table>
@@ -131,39 +161,13 @@ export function CategoriesScreen() {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th style={{ textAlign: "center" }}>Records</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {incomeCategories.map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        {c.icon && (
-                          <CategoryIcon
-                            name={c.icon}
-                            size={14}
-                            style={{
-                              marginRight: 6,
-                              verticalAlign: "middle",
-                              color: c.color || "var(--chelete-fg-muted)",
-                            }}
-                          />
-                        )}
-                        {c.name}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="btn"
-                          style={{ fontSize: 11, padding: "2px 6px" }}
-                          onClick={async () => {
-                            await api.deleteCategory(c.id);
-                            load();
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
+                    <CategoryRow key={c.id} c={c} />
                   ))}
                 </tbody>
               </table>

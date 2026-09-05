@@ -1050,12 +1050,36 @@ pub fn transfer(
     currency: String,
     notes: Option<String>,
 ) -> Result<(), String> {
+    if from_account_id == to_account_id {
+        return Err("Source and destination accounts must be different.".to_string());
+    }
+    if amount <= 0 {
+        return Err("Amount must be greater than zero.".to_string());
+    }
+
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let now = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let description = format!("Transfer to {}", to_account_id);
-    let reverse_description = format!("Transfer from {}", from_account_id);
+
+    let from_name: String = tx
+        .query_row(
+            "SELECT name FROM accounts WHERE id = ?1 AND deleted_at IS NULL",
+            params![from_account_id.clone()],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let to_name: String = tx
+        .query_row(
+            "SELECT name FROM accounts WHERE id = ?1 AND deleted_at IS NULL",
+            params![to_account_id.clone()],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let description = format!("Transfer to {}", to_name);
+    let reverse_description = format!("Transfer from {}", from_name);
+    let note = notes.unwrap_or_default();
 
     // Withdraw from source
     tx.execute(
@@ -1067,7 +1091,7 @@ pub fn transfer(
             amount,
             currency,
             description,
-            notes.clone().unwrap_or_default(),
+            note.clone(),
             now,
         ],
     )
@@ -1083,7 +1107,7 @@ pub fn transfer(
             amount,
             currency,
             reverse_description,
-            notes.unwrap_or_default(),
+            note,
             now,
         ],
     )

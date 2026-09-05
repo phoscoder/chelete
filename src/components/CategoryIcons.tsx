@@ -40,6 +40,8 @@ import {
   Landmark,
   Shield,
   Cloud,
+  CircleQuestionMark,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +93,8 @@ export const CATEGORY_ICONS: CategoryIconDef[] = [
   { name: "landmark", icon: Landmark, label: "Taxes" },
   { name: "shield", icon: Shield, label: "Insurance" },
   { name: "cloud", icon: Cloud, label: "Cloud" },
+  { name: "circle-question-mark", icon: CircleQuestionMark, label: "Unaccounted" },
+  { name: "user-round", icon: UserRound, label: "Woman" },
 ];
 
 export function CategoryIcon({

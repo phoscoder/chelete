@@ -31,6 +31,7 @@ import {
   Stethoscope,
   GraduationCap,
   Building2,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,6 +86,11 @@ export function TransactionsScreen() {
   const [customEnd, setCustomEnd] = useState("");
   const [transactionPage, setTransactionPage] = useState(1);
   const [transactionsPerPage, setTransactionsPerPage] = useState(25);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<{
+    ids: string[];
+    count: number;
+  } | null>(null);
   const PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 60, 80, 100];
 
   const load = () => {
@@ -121,17 +127,73 @@ export function TransactionsScreen() {
     [filteredTransactions, transactionPage, transactionsPerPage]
   );
 
+  const selectedOnPage = useMemo(() => {
+    if (paginatedTransactions.length === 0) return false;
+    return paginatedTransactions.every((t) => selectedIds.has(t.id));
+  }, [paginatedTransactions, selectedIds]);
+
+  const someSelectedOnPage = useMemo(() => {
+    return paginatedTransactions.some((t) => selectedIds.has(t.id));
+  }, [paginatedTransactions, selectedIds]);
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const togglePageSelection = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selectedOnPage) {
+        paginatedTransactions.forEach((t) => next.delete(t.id));
+      } else {
+        paginatedTransactions.forEach((t) => next.add(t.id));
+      }
+      return next;
+    });
+  };
+
+  const handleDelete = async (ids: string[]) => {
+    await api.deleteTransactions(ids);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+    load();
+  };
+
   return (
     <div>
       <div className="page-header">
         <div className="page-title">Transactions</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => setShowImport(true)}>
-            Import CSV
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-            + Add
-          </button>
+          {selectedIds.size > 0 ? (
+            <button
+              className="btn btn-danger"
+              onClick={() =>
+                setConfirmDelete({ ids: Array.from(selectedIds), count: selectedIds.size })
+              }
+            >
+              Delete {selectedIds.size} selected
+            </button>
+          ) : (
+            <>
+              <button className="btn" onClick={() => setShowImport(true)}>
+                Import CSV
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+                + Add
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -204,52 +266,89 @@ export function TransactionsScreen() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 32 }}>
+                    <input
+                      type="checkbox"
+                      className="form-checkbox"
+                      checked={selectedOnPage}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someSelectedOnPage && !selectedOnPage;
+                      }}
+                      onChange={togglePageSelection}
+                    />
+                  </th>
                   <th>Date</th>
                   <th>Description</th>
                   <th>Category</th>
                   <th>Account</th>
                   <th style={{ textAlign: "right" }}>Amount</th>
+                  <th style={{ width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedTransactions.map((t) => {
-                const cat = t.category_id ? categoryMap[t.category_id] : null;
-                return (
-                  <tr key={t.id}>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      {formatDate(t.transaction_date)}
-                    </td>
-                    <td>{t.description}</td>
-                    <td>
-                      {cat ? (
-                        <span className="category-tag">
-                          {cat.icon && (
-                            <CategoryIcon
-                              name={cat.icon}
-                              size={12}
-                              style={{ marginRight: 4, verticalAlign: "middle" }}
-                            />
-                          )}
-                          {cat.name}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--chelete-fg-subtle)" }}>
-                          —
-                        </span>
-                      )}
-                    </td>
-                    <td>{accountMap[t.account_id]?.name || "—"}</td>
-                    <td className={`amount ${t.transaction_type}`}>
-                      {formatMoney(
-                        t.transaction_type === "expense" ? -t.amount : t.amount
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                  const cat = t.category_id ? categoryMap[t.category_id] : null;
+                  return (
+                    <tr key={t.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="form-checkbox"
+                          checked={selectedIds.has(t.id)}
+                          onChange={() => toggleSelection(t.id)}
+                        />
+                      </td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {formatDate(t.transaction_date)}
+                      </td>
+                      <td>{t.description}</td>
+                      <td>
+                        {cat ? (
+                          <span className="category-tag">
+                            {cat.icon && (
+                              <CategoryIcon
+                                name={cat.icon}
+                                size={12}
+                                style={{ marginRight: 4, verticalAlign: "middle" }}
+                              />
+                            )}
+                            {cat.name}
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--chelete-fg-subtle)" }}>
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td>{accountMap[t.account_id]?.name || "—"}</td>
+                      <td className={`amount ${t.transaction_type}`}>
+                        {formatMoney(
+                          t.transaction_type === "expense" ? -t.amount : t.amount
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="btn"
+                          title="Delete transaction"
+                          onClick={() => setConfirmDelete({ ids: [t.id], count: 1 })}
+                          style={{
+                            padding: 4,
+                            background: "transparent",
+                            borderColor: "transparent",
+                            color: "var(--chelete-danger)",
+                            opacity: 0.75,
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
           <div className="pagination">
             <div className="pagination-per-page">
               <span>Show</span>
@@ -275,6 +374,47 @@ export function TransactionsScreen() {
           </div>
         </>
       )}
+
+      {confirmDelete && (
+        <DeleteConfirmDialog
+          count={confirmDelete.count}
+          onConfirm={async () => {
+            await handleDelete(confirmDelete.ids);
+            setConfirmDelete(null);
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteConfirmDialog({
+  count,
+  onConfirm,
+  onCancel,
+}: {
+  count: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-title">Delete {count} transaction{count === 1 ? "" : "s"}?</div>
+        <p style={{ marginBottom: 20, fontSize: 14 }}>
+          This will permanently remove the selected transaction{count === 1 ? "" : "s"} and reverse
+          any account balance changes. This action cannot be undone.
+        </p>
+        <div className="modal-actions">
+          <button className="btn" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" onClick={onConfirm}>
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

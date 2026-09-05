@@ -872,6 +872,12 @@ tr:hover td {
 .btn-danger {
   color: var(--chelete-danger);
   border-color: var(--chelete-danger);
+  background: color-mix(in srgb, var(--chelete-danger) 10%, transparent);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--chelete-danger) 20%, transparent);
+  border-color: var(--chelete-danger);
 }
 
 /* ── Forms ─────────────────────────────────────────────────── */
@@ -926,6 +932,53 @@ tr:hover td {
 
 .form-input::placeholder {
   color: var(--chelete-fg-subtle);
+}
+
+.form-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  background: var(--chelete-bg);
+  border: 1px solid var(--chelete-border);
+  border-radius: calc(var(--chelete-radius) * 1.25);
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.form-checkbox:focus {
+  outline: none;
+  border-color: var(--chelete-accent);
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.2);
+}
+
+.form-checkbox:checked {
+  background: var(--chelete-accent);
+  border-color: var(--chelete-accent);
+}
+
+.form-checkbox:checked::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--chelete-bg);
+  clip-path: polygon(14% 50%, 38% 74%, 86% 26%, 78% 18%, 38% 58%, 22% 42%);
+}
+
+.form-checkbox:indeterminate {
+  background: var(--chelete-accent);
+  border-color: var(--chelete-accent);
+}
+
+.form-checkbox:indeterminate::after {
+  content: "";
+  width: 8px;
+  height: 2px;
+  background: var(--chelete-bg);
 }
 
 /* ── Modal / Dialog ────────────────────────────────────────── */

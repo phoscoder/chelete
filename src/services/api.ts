@@ -34,6 +34,8 @@ export const api = {
     invoke<Transaction>("update_transaction", { request }),
   deleteTransaction: (id: string) =>
     invoke<void>("delete_transaction", { id }),
+  deleteTransactions: (ids: string[]) =>
+    invoke<void>("delete_transactions", { ids }),
 
   // Categories
   getCategories: () => invoke<Category[]>("get_categories"),

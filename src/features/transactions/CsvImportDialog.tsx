@@ -90,14 +90,27 @@ function fieldColumn(mapping: CsvMapping, field: CsvField): string | undefined {
   return Object.entries(mapping.columns).find(([, f]) => f === field)?.[0];
 }
 
-function isDuplicatePreview(row: ParsedRow, existing: ParsedRow[]): boolean {
+function effectiveAccount(row: ParsedRow, mapping: CsvMapping): string | null {
+  if (row.account?.trim()) return row.account.trim().toLowerCase();
+  if (mapping.default_account_id) return `__default:${mapping.default_account_id}`;
+  return null;
+}
+
+function isDuplicatePreview(row: ParsedRow, existing: ParsedRow[], mapping: CsvMapping): boolean {
+  // Only flag duplicates when there is a meaningful account source. Otherwise rows with
+  // blank accounts look identical and all get marked as duplicates.
+  if (!row.date || row.amount_cents == null || !row.description) {
+    return false;
+  }
+  const accountA = effectiveAccount(row, mapping);
+  if (!accountA) return false;
   return existing.some(
     (r) =>
       r.row_index < row.row_index &&
       r.date === row.date &&
       r.amount_cents === row.amount_cents &&
       r.description?.trim().toLowerCase() === row.description?.trim().toLowerCase() &&
-      r.account?.trim().toLowerCase() === row.account?.trim().toLowerCase()
+      effectiveAccount(r, mapping) === accountA
   );
 }
 
@@ -182,6 +195,13 @@ export function CsvImportDialog({ accounts, categories, onDone, onCancel }: CsvI
     setMapping((prev) => ({ ...prev, default_currency: currency.trim().toUpperCase() || "USD" }));
   };
 
+  const updateDefaultType = (type: string) => {
+    setMapping((prev) => ({
+      ...prev,
+      default_transaction_type: type === "" ? undefined : (type as "income" | "expense"),
+    }));
+  };
+
   const updateTypeAlias = (from: string, to: string) => {
     setMapping((prev) => ({
       ...prev,
@@ -244,7 +264,8 @@ export function CsvImportDialog({ accounts, categories, onDone, onCancel }: CsvI
     const hasType =
       fieldColumn(mapping, "type") ||
       fieldColumn(mapping, "income_amount") ||
-      fieldColumn(mapping, "expense_amount");
+      fieldColumn(mapping, "expense_amount") ||
+      mapping.default_transaction_type;
     return Boolean(hasDate && hasDescription && hasAmount && hasType);
   }, [mapping]);
 
@@ -285,6 +306,7 @@ export function CsvImportDialog({ accounts, categories, onDone, onCancel }: CsvI
             onDefaultAccountChange={updateDefaultAccount}
             onDefaultCategoryChange={updateDefaultCategory}
             onCurrencyChange={updateCurrency}
+            onDefaultTypeChange={updateDefaultType}
             onTypeAliasChange={updateTypeAlias}
             onPreview={handlePreview}
             onCancel={onCancel}
@@ -323,6 +345,7 @@ function MappingStage({
   onDefaultAccountChange,
   onDefaultCategoryChange,
   onCurrencyChange,
+  onDefaultTypeChange,
   onTypeAliasChange,
   onPreview,
   onCancel,
@@ -339,6 +362,7 @@ function MappingStage({
   onDefaultAccountChange: (id: string) => void;
   onDefaultCategoryChange: (id: string) => void;
   onCurrencyChange: (currency: string) => void;
+  onDefaultTypeChange: (type: string) => void;
   onTypeAliasChange: (from: string, to: string) => void;
   onPreview: () => void;
   onCancel: () => void;
@@ -464,6 +488,19 @@ function MappingStage({
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label">Default Type</label>
+              <select
+                className="form-select"
+                value={mapping.default_transaction_type || ""}
+                onChange={(e) => onDefaultTypeChange(e.target.value)}
+              >
+                <option value="">Infer from columns…</option>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
+
             {hasTypeColumn && (
               <div className="form-group">
                 <label className="form-label">Type Aliases</label>
@@ -561,9 +598,9 @@ function PreviewStage({
   const previewWithDupes = useMemo(() => {
     return preview.rows.map((row) => ({
       ...row,
-      duplicate: isDuplicatePreview(row, preview.rows),
+      duplicate: isDuplicatePreview(row, preview.rows, mapping),
     }));
-  }, [preview.rows]);
+  }, [preview.rows, mapping]);
 
   const validCount = previewWithDupes.filter((r) => r.errors.length === 0 && !r.duplicate).length;
 
@@ -613,8 +650,8 @@ function PreviewStage({
               const typeField = fieldColumn(mapping, "type");
               const typeLabel =
                 row.transaction_type ||
-                (fieldColumn(mapping, "income_amount") ? "income" : undefined) ||
-                (fieldColumn(mapping, "expense_amount") ? "expense" : undefined) ||
+                (row.amount_source === "income_column" ? "income" : undefined) ||
+                (row.amount_source === "expense_column" ? "expense" : undefined) ||
                 (typeField ? "—" : "—");
               const accountName = row.account ||
                 (mapping.default_account_id ? "(default)" : "—");

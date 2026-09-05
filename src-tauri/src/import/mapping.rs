@@ -135,6 +135,7 @@ impl CsvMapping {
             default_account_id: None,
             default_category_id: None,
             default_currency: Some("USD".to_string()),
+            default_transaction_type: None,
             type_aliases,
         }
     }

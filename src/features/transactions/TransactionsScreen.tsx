@@ -32,6 +32,8 @@ import {
   GraduationCap,
   Building2,
   Trash2,
+  Pencil,
+  Eye,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +93,8 @@ export function TransactionsScreen() {
     ids: string[];
     count: number;
   } | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
   const PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 60, 80, 100];
 
   const load = () => {
@@ -218,6 +222,28 @@ export function TransactionsScreen() {
         />
       )}
 
+      {editingTransaction && (
+        <EditTransactionForm
+          accounts={accounts}
+          categories={categories}
+          transaction={editingTransaction}
+          onDone={() => {
+            setEditingTransaction(null);
+            load();
+          }}
+          onCancel={() => setEditingTransaction(null)}
+        />
+      )}
+
+      {viewingTransaction && (
+        <ViewTransactionDialog
+          transaction={viewingTransaction}
+          account={accountMap[viewingTransaction.account_id]}
+          category={viewingTransaction.category_id ? categoryMap[viewingTransaction.category_id] : null}
+          onClose={() => setViewingTransaction(null)}
+        />
+      )}
+
       {showImport && (
         <CsvImportDialog
           accounts={accounts}
@@ -283,7 +309,7 @@ export function TransactionsScreen() {
                   <th>Category</th>
                   <th>Account</th>
                   <th style={{ textAlign: "right" }}>Amount</th>
-                  <th style={{ width: 40 }}></th>
+                  <th style={{ width: 90 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -332,7 +358,39 @@ export function TransactionsScreen() {
                           t.transaction_type === "expense" ? -t.amount : t.amount
                         )}
                       </td>
-                      <td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <button
+                          className="btn"
+                          title="View transaction"
+                          onClick={() => setViewingTransaction(t)}
+                          style={{
+                            padding: 4,
+                            background: "transparent",
+                            borderColor: "transparent",
+                            color: "var(--chelete-fg-muted)",
+                            marginRight: 4,
+                            display: "inline-flex",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          className="btn"
+                          title="Edit transaction"
+                          onClick={() => setEditingTransaction(t)}
+                          style={{
+                            padding: 4,
+                            background: "transparent",
+                            borderColor: "transparent",
+                            color: "var(--chelete-fg-muted)",
+                            marginRight: 4,
+                            display: "inline-flex",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
                         <button
                           className="btn"
                           title="Delete transaction"
@@ -343,6 +401,8 @@ export function TransactionsScreen() {
                             borderColor: "transparent",
                             color: "var(--chelete-danger)",
                             opacity: 0.75,
+                            display: "inline-flex",
+                            verticalAlign: "middle",
                           }}
                         >
                           <Trash2 size={14} />
@@ -395,6 +455,83 @@ export function TransactionsScreen() {
   );
 }
 
+function ViewTransactionDialog({
+  transaction,
+  account,
+  category,
+  onClose,
+}: {
+  transaction: Transaction;
+  account?: Account;
+  category?: Category | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-title">Transaction Details</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "8px 16px", fontSize: 14 }}>
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Date</span>
+          <span>{formatDate(transaction.transaction_date)}</span>
+
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Description</span>
+          <span>{transaction.description}</span>
+
+          {transaction.merchant && (
+            <>
+              <span style={{ color: "var(--chelete-fg-muted)" }}>Merchant</span>
+              <span>{transaction.merchant}</span>
+            </>
+          )}
+
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Type</span>
+          <span>
+            <span className={`type-tag ${transaction.transaction_type}`}>
+              {transaction.transaction_type}
+            </span>
+          </span>
+
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Amount</span>
+          <span className={`amount ${transaction.transaction_type}`}>
+            {formatMoney(
+              transaction.transaction_type === "expense" ? -transaction.amount : transaction.amount
+            )}
+          </span>
+
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Account</span>
+          <span>{account?.name || "—"}</span>
+
+          <span style={{ color: "var(--chelete-fg-muted)" }}>Category</span>
+          <span>
+            {category ? (
+              <span className="category-tag">
+                {category.icon && (
+                  <CategoryIcon name={category.icon} size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                )}
+                {category.name}
+              </span>
+            ) : (
+              "—"
+            )}
+          </span>
+
+          {transaction.notes && (
+            <>
+              <span style={{ color: "var(--chelete-fg-muted)" }}>Notes</span>
+              <span>{transaction.notes}</span>
+            </>
+          )}
+        </div>
+        <div className="modal-actions" style={{ marginTop: 16 }}>
+          <button className="btn btn-primary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteConfirmDialog({
   count,
   onConfirm,
@@ -436,12 +573,101 @@ function AddTransactionForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [type, setType] = useState("expense");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
-  const [categoryId, setCategoryId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  return (
+    <TransactionForm
+      title="Add Transaction"
+      accounts={accounts}
+      categories={categories}
+      onSubmit={async (values) => {
+        await api.createTransaction(values);
+        onDone();
+      }}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function EditTransactionForm({
+  accounts,
+  categories,
+  transaction,
+  onDone,
+  onCancel,
+}: {
+  accounts: Account[];
+  categories: Category[];
+  transaction: Transaction;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <TransactionForm
+      title="Edit Transaction"
+      accounts={accounts}
+      categories={categories}
+      initialType={transaction.transaction_type}
+      initialAmount={(transaction.amount / 100).toFixed(2)}
+      initialDescription={transaction.description}
+      initialAccountId={transaction.account_id}
+      initialCategoryId={transaction.category_id ?? ""}
+      initialDate={transaction.transaction_date}
+      onSubmit={async (values) => {
+        await api.updateTransaction({
+          id: transaction.id,
+          account_id: values.account_id,
+          category_id: values.category_id || undefined,
+          transaction_type: values.transaction_type,
+          amount: values.amount,
+          currency: "USD",
+          description: values.description,
+          transaction_date: values.transaction_date,
+        });
+        onDone();
+      }}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function TransactionForm({
+  title,
+  accounts,
+  categories,
+  initialType = "expense",
+  initialAmount = "",
+  initialDescription = "",
+  initialAccountId,
+  initialCategoryId = "",
+  initialDate = new Date().toISOString().split("T")[0],
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  accounts: Account[];
+  categories: Category[];
+  initialType?: string;
+  initialAmount?: string;
+  initialDescription?: string;
+  initialAccountId?: string;
+  initialCategoryId?: string;
+  initialDate?: string;
+  onSubmit: (values: {
+    account_id: string;
+    category_id?: string;
+    transaction_type: string;
+    amount: number;
+    currency: string;
+    description: string;
+    transaction_date: string;
+  }) => void | Promise<void>;
+  onCancel: () => void;
+}) {
+  const [type, setType] = useState(initialType);
+  const [amount, setAmount] = useState(initialAmount);
+  const [description, setDescription] = useState(initialDescription);
+  const [accountId, setAccountId] = useState(initialAccountId || accounts[0]?.id || "");
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [date, setDate] = useState(initialDate);
 
   const expenseCategories = categories.filter(
     (c) => c.category_type === "expense"
@@ -457,7 +683,7 @@ function AddTransactionForm({
     const cents = Math.round(parseFloat(amount) * 100);
     if (isNaN(cents) || cents <= 0) return;
 
-    await api.createTransaction({
+    await onSubmit({
       account_id: accountId,
       category_id: categoryId || undefined,
       transaction_type: type,
@@ -466,13 +692,12 @@ function AddTransactionForm({
       description,
       transaction_date: date,
     });
-    onDone();
   };
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Add Transaction</div>
+        <div className="modal-title">{title}</div>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <button

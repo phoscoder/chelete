@@ -10,6 +10,10 @@ import type {
   CreateTransactionRequest,
   CreateCategoryRequest,
   CreateSubscriptionRequest,
+  CsvMapping,
+  CsvPreview,
+  ImportOptions,
+  ImportResult,
 } from "../types";
 
 export const api = {
@@ -54,4 +58,14 @@ export const api = {
 
   // Theme
   getOmarchyTheme: () => invoke<OmarchyTheme>("get_omarchy_theme"),
+
+  // Import
+  openCsvFileDialog: () => invoke<string | null>("open_csv_file_dialog"),
+  previewCsvImport: (path: string, mapping: CsvMapping) =>
+    invoke<CsvPreview>("preview_csv_import", { path, mapping }),
+  importTransactions: (
+    path: string,
+    mapping: CsvMapping,
+    options: ImportOptions
+  ) => invoke<ImportResult>("import_transactions", { path, mapping, options }),
 };

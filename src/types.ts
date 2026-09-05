@@ -123,3 +123,59 @@ export interface CreateSubscriptionRequest {
   account_id?: string;
   start_date?: string;
 }
+
+export type CsvField =
+  | "date"
+  | "description"
+  | "merchant"
+  | "amount"
+  | "income_amount"
+  | "expense_amount"
+  | "type"
+  | "category"
+  | "account"
+  | "currency"
+  | "notes"
+  | "ignore";
+
+export interface CsvMapping {
+  columns: Record<string, CsvField>;
+  default_account_id?: string;
+  default_category_id?: string;
+  default_currency?: string;
+  type_aliases: Record<string, string>;
+}
+
+export interface ParsedRow {
+  row_index: number;
+  date?: string;
+  description?: string;
+  merchant?: string;
+  transaction_type?: string;
+  amount_cents?: number;
+  amount_source?: "income_column" | "expense_column" | "amount_column";
+  currency?: string;
+  category?: string;
+  account?: string;
+  notes?: string;
+  errors: string[];
+}
+
+export interface CsvPreview {
+  headers: string[];
+  rows: ParsedRow[];
+  total_rows: number;
+}
+
+export interface ImportOptions {
+  default_account_id?: string;
+  default_category_id?: string;
+  default_currency?: string;
+  skip_duplicates: boolean;
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}

@@ -5,11 +5,13 @@ import {
   CATEGORY_ICONS,
   CategoryIcon,
 } from "../../components/CategoryIcons";
+import { Pencil, Trash2 } from "lucide-react";
 
 export function CategoriesScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<Category | null>(null);
 
   const load = () => {
     api.getCategories().then(setCategories);
@@ -68,13 +70,34 @@ export function CategoriesScreen() {
         <td style={{ textAlign: "right" }}>
           <button
             className="btn"
-            style={{ fontSize: 11, padding: "2px 6px" }}
+            title="Edit category"
+            onClick={() => setEditing(c)}
+            style={{
+              padding: 4,
+              background: "transparent",
+              borderColor: "transparent",
+              color: "var(--chelete-fg-muted)",
+              marginRight: 4,
+            }}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            className="btn"
+            title="Delete category"
             onClick={async () => {
               await api.deleteCategory(c.id);
               load();
             }}
+            style={{
+              padding: 4,
+              background: "transparent",
+              borderColor: "transparent",
+              color: "var(--chelete-danger)",
+              opacity: 0.75,
+            }}
           >
-            Delete
+            <Trash2 size={14} />
           </button>
         </td>
       </tr>
@@ -97,6 +120,17 @@ export function CategoriesScreen() {
             load();
           }}
           onCancel={() => setShowAdd(false)}
+        />
+      )}
+
+      {editing && (
+        <EditCategoryForm
+          category={editing}
+          onDone={() => {
+            setEditing(null);
+            load();
+          }}
+          onCancel={() => setEditing(null)}
         />
       )}
 
@@ -186,26 +220,84 @@ function AddCategoryForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("expense");
-  const [selectedIcon, setSelectedIcon] = useState("utensils");
+  return (
+    <CategoryForm
+      title="Add Category"
+      initialName=""
+      initialType="expense"
+      initialIcon="utensils"
+      onSubmit={async (values) => {
+        await api.createCategory(values);
+        onDone();
+      }}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function EditCategoryForm({
+  category,
+  onDone,
+  onCancel,
+}: {
+  category: Category;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <CategoryForm
+      title="Edit Category"
+      initialName={category.name}
+      initialType={category.category_type}
+      initialIcon={category.icon ?? "utensils"}
+      onSubmit={async (values) => {
+        await api.updateCategory({
+          id: category.id,
+          name: values.name,
+          category_type: values.category_type,
+          icon: values.icon,
+        });
+        onDone();
+      }}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function CategoryForm({
+  title,
+  initialName,
+  initialType,
+  initialIcon,
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  initialName: string;
+  initialType: string;
+  initialIcon: string;
+  onSubmit: (values: { name: string; category_type: string; icon: string }) => void | Promise<void>;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [type, setType] = useState(initialType);
+  const [selectedIcon, setSelectedIcon] = useState(initialIcon);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    await api.createCategory({
+    await onSubmit({
       name: name.trim(),
       category_type: type,
       icon: selectedIcon,
     });
-    onDone();
   };
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">Add Category</div>
+        <div className="modal-title">{title}</div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name</label>

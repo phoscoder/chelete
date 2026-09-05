@@ -199,6 +199,10 @@ export default function App() {
         onAction={(action) => {
           setCommandPalette(false);
           if (action === "add-transaction") setView("transactions");
+          else if (action === "import-transactions") {
+            setView("transactions");
+            window.dispatchEvent(new CustomEvent("chelete-open-import"));
+          }
           else if (action === "add-account") setView("accounts");
           else if (action === "add-category") setView("categories");
           else if (action === "add-subscription") setView("subscriptions");

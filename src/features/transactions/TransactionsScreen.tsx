@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { api } from "../../services/api";
 import { formatMoney, formatDate } from "../../services/format";
 import type { Transaction, Account, Category } from "../../types";
+import { CsvImportDialog } from "./CsvImportDialog";
 import {
   DateFilter,
   getDateRange,
@@ -78,6 +79,7 @@ export function TransactionsScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilterValue>("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -93,6 +95,12 @@ export function TransactionsScreen() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const onOpenImport = () => setShowImport(true);
+    window.addEventListener("chelete-open-import", onOpenImport);
+    return () => window.removeEventListener("chelete-open-import", onOpenImport);
   }, []);
 
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
@@ -117,9 +125,14 @@ export function TransactionsScreen() {
     <div>
       <div className="page-header">
         <div className="page-title">Transactions</div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-          + Add
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => setShowImport(true)}>
+            Import CSV
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+            + Add
+          </button>
+        </div>
       </div>
 
       <DateFilter
@@ -140,6 +153,18 @@ export function TransactionsScreen() {
             load();
           }}
           onCancel={() => setShowAdd(false)}
+        />
+      )}
+
+      {showImport && (
+        <CsvImportDialog
+          accounts={accounts}
+          categories={categories}
+          onDone={() => {
+            setShowImport(false);
+            load();
+          }}
+          onCancel={() => setShowImport(false)}
         />
       )}
 

@@ -34,6 +34,8 @@ import {
   Trash2,
   Pencil,
   Eye,
+  Upload,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 
@@ -194,9 +196,11 @@ export function TransactionsScreen() {
           ) : (
             <>
               <button className="btn" onClick={() => setShowImport(true)}>
+                <Upload size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
                 Import CSV
               </button>
               <button className="btn" onClick={() => setShowExport(true)}>
+                <Download size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
                 Export Data
               </button>
               <button className="btn btn-primary" onClick={() => setShowAdd(true)}>

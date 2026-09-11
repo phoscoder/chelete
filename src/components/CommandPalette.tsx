@@ -29,6 +29,7 @@ export function CommandPalette({
     { id: "accounts", label: "Go to Accounts", shortcut: "Ctrl+A", action: () => onNavigate("accounts") },
     { id: "categories", label: "Go to Categories", shortcut: "Ctrl+C", action: () => onNavigate("categories") },
     { id: "subscriptions", label: "Go to Subscriptions", shortcut: "Ctrl+U", action: () => onNavigate("subscriptions") },
+    { id: "projections", label: "Go to Projections", shortcut: "Ctrl+P", action: () => onNavigate("projections") },
     { id: "settings", label: "Go to Settings", shortcut: "Ctrl+S", action: () => onNavigate("settings") },
     { id: "add-transaction", label: "Add Transaction", action: () => onAction("add-transaction") },
     { id: "import-transactions", label: "Import Transactions (CSV)", action: () => onAction("import-transactions") },

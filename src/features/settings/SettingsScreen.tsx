@@ -114,7 +114,6 @@ export function SettingsScreen() {
             <div className="settings-row">
               <div>
                 <div className="settings-label">Author</div>
-                <div className="settings-desc">The Architect &amp; QA</div>
               </div>
               <div className="settings-value">Victor Phos</div>
             </div>

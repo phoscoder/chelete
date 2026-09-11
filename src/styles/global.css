@@ -740,6 +740,43 @@ body {
   margin: 0;
 }
 
+/* ── About ─────────────────────────────────────────────────── */
+
+.about-card {
+  padding: 16px;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.about-logo {
+  transform: scale(0.8);
+  transform-origin: left center;
+}
+
+.about-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--chelete-fg);
+}
+
+.about-version {
+  font-size: 11px;
+  color: var(--chelete-fg-muted);
+  margin-top: 2px;
+}
+
+.about-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--chelete-fg-muted);
+  margin-bottom: 12px;
+}
+
 /* ── Icon picker ───────────────────────────────────────────── */
 
 .icon-picker {

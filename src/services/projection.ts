@@ -61,6 +61,40 @@ export function periodLabel(
   return step === 1 ? `1 ${unit}` : `${step} ${unit}s`;
 }
 
+export type SubscriptionFrequency =
+  | "weekly"
+  | "bi_weekly"
+  | "monthly"
+  | "quarterly"
+  | "bi_yearly"
+  | "yearly";
+
+const SUBSCRIPTION_PERIODS_PER_YEAR: Record<SubscriptionFrequency, number> = {
+  weekly: 52,
+  bi_weekly: 26,
+  monthly: 12,
+  quarterly: 4,
+  bi_yearly: 2,
+  yearly: 1,
+};
+
+const PROJECTION_PERIODS_PER_YEAR: Record<ProjectionPeriodType, number> = {
+  weeks: 52,
+  months: 12,
+  years: 1,
+};
+
+export function normalizeSubscriptionToPeriod(
+  amount: number,
+  frequency: string,
+  periodType: ProjectionPeriodType
+): number {
+  const perYear =
+    SUBSCRIPTION_PERIODS_PER_YEAR[frequency as SubscriptionFrequency];
+  if (!perYear) return 0;
+  return Math.round((amount * perYear) / PROJECTION_PERIODS_PER_YEAR[periodType]);
+}
+
 export function computeProjection(input: ProjectionInput): ProjectionResult {
   const { startingBalance, income, expense, periodType, periods } = input;
   const netPerPeriod = income - expense;

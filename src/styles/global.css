@@ -1360,6 +1360,69 @@ tr:hover td {
   margin-top: 4px;
 }
 
+.projection-subs-box {
+  background: var(--chelete-surface-hover);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+  padding: 10px;
+  font-size: 12px;
+}
+
+.projection-subs-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--chelete-fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.projection-subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.projection-subs-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.projection-subs-name {
+  color: var(--chelete-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projection-subs-amount {
+  color: var(--chelete-fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.projection-subs-total {
+  border-top: 1px solid var(--chelete-border);
+  padding-top: 8px;
+  color: var(--chelete-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.projection-subs-empty {
+  margin-top: 8px;
+  color: var(--chelete-fg-muted);
+  font-size: 11px;
+}
+
 .projection-content {
   display: flex;
   flex-direction: column;

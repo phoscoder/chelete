@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeProjection,
   periodLabel,
+  normalizeSubscriptionToPeriod,
   PERIOD_LIMITS,
   type ProjectionInput,
 } from "../projection";
@@ -138,5 +139,48 @@ describe("periodLabel", () => {
     expect(periodLabel("months", 10)).toBe("10 months");
     expect(periodLabel("weeks", 3)).toBe("3 weeks");
     expect(periodLabel("years", 2)).toBe("2 years");
+  });
+});
+
+describe("normalizeSubscriptionToPeriod", () => {
+  it("normalizes monthly amounts to months unchanged", () => {
+    expect(normalizeSubscriptionToPeriod(10000, "monthly", "months")).toBe(10000);
+  });
+
+  it("converts monthly to weeks", () => {
+    expect(normalizeSubscriptionToPeriod(12000, "monthly", "weeks")).toBe(2769);
+  });
+
+  it("converts monthly to years", () => {
+    expect(normalizeSubscriptionToPeriod(10000, "monthly", "years")).toBe(120000);
+  });
+
+  it("converts yearly to months", () => {
+    expect(normalizeSubscriptionToPeriod(1200000, "yearly", "months")).toBe(100000);
+  });
+
+  it("converts weekly to months", () => {
+    expect(normalizeSubscriptionToPeriod(1000, "weekly", "months")).toBe(4333);
+  });
+
+  it("converts bi_weekly to months", () => {
+    expect(normalizeSubscriptionToPeriod(2000, "bi_weekly", "months")).toBe(4333);
+  });
+
+  it("converts quarterly to months", () => {
+    expect(normalizeSubscriptionToPeriod(30000, "quarterly", "months")).toBe(10000);
+  });
+
+  it("converts bi_yearly to months", () => {
+    expect(normalizeSubscriptionToPeriod(60000, "bi_yearly", "months")).toBe(10000);
+  });
+
+  it("rounds fractional cents", () => {
+    expect(normalizeSubscriptionToPeriod(500, "weekly", "weeks")).toBe(500);
+    expect(normalizeSubscriptionToPeriod(1, "monthly", "weeks")).toBe(0);
+  });
+
+  it("returns 0 for unknown frequencies", () => {
+    expect(normalizeSubscriptionToPeriod(10000, "daily", "months")).toBe(0);
   });
 });

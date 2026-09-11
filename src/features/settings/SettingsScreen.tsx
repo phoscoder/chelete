@@ -1,6 +1,8 @@
 import { useTheme } from "../../hooks/useTheme";
 import { useEffect, useState } from "react";
 
+const APP_VERSION = "0.6.0";
+
 export function SettingsScreen() {
   const theme = useTheme();
   const [rounded, setRounded] = useState(() => {
@@ -80,6 +82,48 @@ export function SettingsScreen() {
                 <div className="settings-label">Month Start</div>
               </div>
               <div className="settings-value">1st</div>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ marginBottom: 32 }}>
+          <div
+            className="page-title"
+            style={{ fontSize: 14, marginBottom: 12 }}
+          >
+            About
+          </div>
+          <div className="card about-card">
+            <div className="about-header">
+              <div className="element-box about-logo">
+                <span className="element-number">115</span>
+                <span className="element-symbol">Ch</span>
+              </div>
+              <div>
+                <div className="about-name">Chelete</div>
+                <div className="about-version">Version {APP_VERSION}</div>
+              </div>
+            </div>
+            <div className="about-desc">
+              A fast, keyboard-driven personal finance tracker for Linux.
+              Manage accounts, track transactions, and project your balance
+              over time — without touching the mouse. Built for Omarchy with
+              live theme integration.
+            </div>
+            <div className="settings-divider" />
+            <div className="settings-row">
+              <div>
+                <div className="settings-label">Author</div>
+                <div className="settings-desc">The Architect &amp; QA</div>
+              </div>
+              <div className="settings-value">Victor Phos</div>
+            </div>
+            <div className="settings-divider" />
+            <div className="settings-row">
+              <div>
+                <div className="settings-label">License</div>
+              </div>
+              <div className="settings-value">MIT</div>
             </div>
           </div>
         </section>

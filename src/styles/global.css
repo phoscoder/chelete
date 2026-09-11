@@ -1334,3 +1334,74 @@ tr:hover td {
   font-size: 12px;
   height: 26px;
 }
+
+/* ── Projections ───────────────────────────────────────────── */
+
+.projection-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.projection-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.projection-form .form-group {
+  margin-bottom: 0;
+}
+
+.projection-hint {
+  font-size: 11px;
+  color: var(--chelete-fg-muted);
+  margin-top: 4px;
+}
+
+.projection-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.projection-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  color: var(--chelete-fg-muted);
+  font-size: 13px;
+  text-align: center;
+  background: var(--chelete-surface);
+  border: 1px solid var(--chelete-border);
+  border-radius: var(--chelete-radius);
+}
+
+.projection-chart-card {
+  padding: 16px;
+}
+
+.projection-chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chelete-fg);
+  margin-bottom: 12px;
+}
+
+.projection-chart-container {
+  width: 100%;
+  height: 320px;
+}
+
+@media (max-width: 900px) {
+  .projection-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -5,6 +5,7 @@ import { TransactionsScreen } from "./features/transactions/TransactionsScreen";
 import { AccountsScreen } from "./features/accounts/AccountsScreen";
 import { CategoriesScreen } from "./features/categories/CategoriesScreen";
 import { SubscriptionsScreen } from "./features/subscriptions/SubscriptionsScreen";
+import { ProjectionsScreen } from "./features/projections/ProjectionsScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { CommandPalette } from "./components/CommandPalette";
 import type { View } from "./types";
@@ -14,6 +15,7 @@ import {
   Wallet,
   Tag,
   Repeat,
+  LineChart,
   Settings,
   Command,
   PanelLeftClose,
@@ -27,6 +29,7 @@ const NAV_ITEMS: { view: View; label: string; shortcut: string; icon: LucideIcon
   { view: "accounts", label: "Accounts", shortcut: "Ctrl+A", icon: Wallet },
   { view: "categories", label: "Categories", shortcut: "Ctrl+C", icon: Tag },
   { view: "subscriptions", label: "Subscriptions", shortcut: "Ctrl+U", icon: Repeat },
+  { view: "projections", label: "Projections", shortcut: "Ctrl+P", icon: LineChart },
   { view: "settings", label: "Settings", shortcut: "Ctrl+S", icon: Settings },
 ];
 
@@ -91,6 +94,7 @@ export default function App() {
           a: "accounts",
           c: "categories",
           u: "subscriptions",
+          p: "projections",
           s: "settings",
         };
         if (viewMap[e.key]) {
@@ -119,6 +123,8 @@ export default function App() {
         return <CategoriesScreen />;
       case "subscriptions":
         return <SubscriptionsScreen />;
+      case "projections":
+        return <ProjectionsScreen />;
       case "settings":
         return <SettingsScreen />;
     }

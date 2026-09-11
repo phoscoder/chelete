@@ -69,6 +69,7 @@ export type View =
   | "accounts"
   | "categories"
   | "subscriptions"
+  | "projections"
   | "settings";
 
 export interface CreateAccountRequest {

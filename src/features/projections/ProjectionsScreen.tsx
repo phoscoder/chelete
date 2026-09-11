@@ -1,13 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../../services/api";
 import {
   computeProjection,
+  normalizeSubscriptionToPeriod,
   PERIOD_PLURAL_LABELS,
   PERIOD_LIMITS,
   PERIOD_UNIT_LABELS,
   type ProjectionPeriodType,
 } from "../../services/projection";
 import { formatBalance, formatMoney, formatDateFull } from "../../services/format";
-import { LineChart, TrendingUp, Target, Calendar } from "lucide-react";
+import type { Subscription } from "../../types";
+import { LineChart, TrendingUp, Target, Calendar, Repeat } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart as RechartsLineChart,
@@ -25,17 +28,46 @@ const PERIOD_OPTIONS: { value: ProjectionPeriodType; label: string }[] = [
   { value: "years", label: "Years" },
 ];
 
+type ExpenseSource = "manual" | "subscriptions";
+
+const EXPENSE_SOURCE_OPTIONS: { value: ExpenseSource; label: string }[] = [
+  { value: "manual", label: "Manual" },
+  { value: "subscriptions", label: "Subscriptions" },
+];
+
 export function ProjectionsScreen() {
   const [startingBalance, setStartingBalance] = useState("0");
   const [income, setIncome] = useState("");
   const [expense, setExpense] = useState("");
+  const [expenseSource, setExpenseSource] = useState<ExpenseSource>("manual");
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptionsLoaded, setSubscriptionsLoaded] = useState(false);
   const [periodType, setPeriodType] = useState<ProjectionPeriodType>("months");
   const [periods, setPeriods] = useState("10");
+
+  useEffect(() => {
+    if (expenseSource === "subscriptions" && !subscriptionsLoaded) {
+      api
+        .getSubscriptions()
+        .then((subs) => setSubscriptions(subs.filter((s) => s.is_active)))
+        .finally(() => setSubscriptionsLoaded(true));
+    }
+  }, [expenseSource, subscriptionsLoaded]);
+
+  const subscriptionsExpense = useMemo(() => {
+    if (expenseSource !== "subscriptions") return 0;
+    return subscriptions.reduce(
+      (sum, s) => sum + normalizeSubscriptionToPeriod(s.amount, s.frequency, periodType),
+      0
+    );
+  }, [subscriptions, expenseSource, periodType]);
 
   const parsed = useMemo(() => {
     const startingBalanceCents = parseFloatDollarsToCents(startingBalance);
     const incomeCents = parseFloatDollarsToCents(income);
-    const expenseCents = parseFloatDollarsToCents(expense);
+    const manualExpenseCents = parseFloatDollarsToCents(expense);
+    const expenseCents =
+      expenseSource === "subscriptions" ? subscriptionsExpense : manualExpenseCents;
     const periodCount = parseInt(periods, 10);
     const valid =
       startingBalanceCents !== null &&
@@ -45,7 +77,7 @@ export function ProjectionsScreen() {
       periodCount >= 1 &&
       periodCount <= PERIOD_LIMITS[periodType];
     return { startingBalanceCents, incomeCents, expenseCents, periodCount, valid };
-  }, [startingBalance, income, expense, periodType, periods]);
+  }, [startingBalance, income, expense, expenseSource, subscriptionsExpense, periodType, periods]);
 
   const result = useMemo(() => {
     if (!parsed.valid) return null;
@@ -100,17 +132,66 @@ export function ProjectionsScreen() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Expense per Period</label>
-            <input
-              className="form-input"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="e.g. 100.00"
-              value={expense}
-              onChange={(e) => setExpense(e.target.value)}
-            />
+            <label className="form-label">Expense Source</label>
+            <select
+              className="form-select"
+              value={expenseSource}
+              onChange={(e) => setExpenseSource(e.target.value as ExpenseSource)}
+            >
+              {EXPENSE_SOURCE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
+          {expenseSource === "manual" ? (
+            <div className="form-group">
+              <label className="form-label">Expense per Period</label>
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 100.00"
+                value={expense}
+                onChange={(e) => setExpense(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="projection-subs-box">
+              <div className="projection-subs-header">
+                <Repeat size={14} strokeWidth={1.5} />
+                <span>
+                  {subscriptions.length} active subscription
+                  {subscriptions.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              {subscriptions.length > 0 && (
+                <div className="projection-subs-list">
+                  {subscriptions.map((s) => (
+                    <div className="projection-subs-item" key={s.id}>
+                      <span className="projection-subs-name">{s.name}</span>
+                      <span className="projection-subs-amount">
+                        {formatMoney(
+                          normalizeSubscriptionToPeriod(s.amount, s.frequency, periodType)
+                        )}
+                        /{PERIOD_UNIT_LABELS[periodType]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="projection-subs-total">
+                Total: {formatMoney(subscriptionsExpense)}/{PERIOD_UNIT_LABELS[periodType]}
+              </div>
+              {subscriptionsLoaded && subscriptions.length === 0 && (
+                <div className="projection-subs-empty">
+                  No active subscriptions found
+                </div>
+              )}
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Period Type</label>
             <select

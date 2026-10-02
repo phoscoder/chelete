@@ -1,5 +1,6 @@
 use super::accounts::AccountsScreen;
 use super::categories::CategoriesScreen;
+use super::projections::ProjectionsScreen;
 use super::settings;
 use super::subscriptions::SubscriptionsScreen;
 use super::overview::{self, OverviewData};
@@ -26,6 +27,7 @@ pub struct Shell {
     accounts: Entity<AccountsScreen>,
     categories: Entity<CategoriesScreen>,
     subscriptions: Entity<SubscriptionsScreen>,
+    projections: Entity<ProjectionsScreen>,
     toast: Option<(u64, String, bool)>,
     toast_seq: u64,
     palette: Option<Entity<Palette>>,
@@ -49,11 +51,13 @@ impl Shell {
         cx.subscribe(&categories, Self::on_screen_event).detach();
         let subscriptions = cx.new(|cx| SubscriptionsScreen::new(db.clone(), window, cx));
         cx.subscribe(&subscriptions, Self::on_screen_event).detach();
+        let projections = cx.new(|cx| ProjectionsScreen::new(db.clone(), window, cx));
         Self {
             overview: OverviewData::load(&db),
             accounts,
             categories,
             subscriptions,
+            projections,
             toast: None,
             toast_seq: 0,
             db,
@@ -82,6 +86,7 @@ impl Shell {
             View::Accounts => self.accounts.update(cx, |s, cx| s.reload(cx)),
             View::Categories => self.categories.update(cx, |s, cx| s.reload(cx)),
             View::Subscriptions => self.subscriptions.update(cx, |s, cx| s.reload(cx)),
+            View::Projections => self.projections.update(cx, |s, cx| s.reload(cx)),
             _ => {}
         }
         cx.notify();
@@ -185,6 +190,7 @@ impl Render for Shell {
             View::Accounts => self.accounts.clone().into_any_element(),
             View::Categories => self.categories.clone().into_any_element(),
             View::Subscriptions => self.subscriptions.clone().into_any_element(),
+            View::Projections => self.projections.clone().into_any_element(),
             View::Settings => settings::render(cx).into_any_element(),
             other => placeholder(other, cx).into_any_element(),
         };

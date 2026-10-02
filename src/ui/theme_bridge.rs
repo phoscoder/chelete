@@ -1,11 +1,30 @@
 //! gpui-omarchy themes its own controls; gpui-component widgets (the date
 //! picker) read a separate theme. Copy the Omarchy palette across and keep it
 //! in step when the system theme changes.
+//!
+//! It also swaps the UI font. gpui-omarchy defaults to the platform UI font,
+//! which resolves to Adwaita Sans on GNOME-flavoured systems, whereas Omarchy
+//! itself uses the one font chosen with `omarchy font set`. Use that everywhere.
 use gpui_kit::component::Theme as ComponentTheme;
-use gpui_kit::App;
+use gpui_kit::{App, BorrowAppContext as _};
 use gpui_omarchy::ActiveTheme as _;
 
+/// Make the Omarchy font the UI font for both control libraries.
+fn use_omarchy_font(cx: &mut App) {
+    let mono = cx.omarchy().mono_font.clone();
+    if cx.omarchy().font != mono {
+        // Observers see this change too, but by then the fonts already match.
+        cx.update_global::<gpui_omarchy::Theme, _>(|theme, _| theme.font = mono.clone());
+    }
+    // gpui-omarchy copies its UI font into the base theme whenever it applies a palette.
+    gpui_kit::base::Theme::global_mut(cx).tokens.typography.sans = mono.clone();
+    let t = ComponentTheme::global_mut(cx);
+    t.font_family = mono.clone();
+    t.mono_font_family = mono;
+}
+
 pub fn sync(cx: &mut App) {
+    use_omarchy_font(cx);
     let o = cx.omarchy().clone();
     let t = ComponentTheme::global_mut(cx);
     t.background = o.background;
@@ -33,4 +52,31 @@ pub fn sync(cx: &mut App) {
 pub fn install(cx: &mut App) {
     sync(cx);
     cx.observe_global::<gpui_omarchy::Theme>(sync).detach();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::test_support::init;
+    use gpui_kit::TestAppContext;
+
+    #[gpui_kit::test]
+    fn the_ui_uses_the_omarchy_font_even_after_a_theme_change(cx: &mut TestAppContext) {
+        init(cx);
+        cx.update(|cx| {
+            let omarchy = cx.omarchy().clone();
+            assert_ne!(omarchy.mono_font.as_ref(), ".SystemUIFont");
+            assert_eq!(omarchy.font, omarchy.mono_font, "omarchy controls use the mono font");
+            assert_eq!(ComponentTheme::global(cx).font_family, omarchy.mono_font, "so do gpui-component widgets");
+            assert_eq!(gpui_kit::base::Theme::global(cx).tokens.typography.sans, omarchy.mono_font);
+        });
+        // Applying a palette resets the font to the platform UI font; it must be put back.
+        cx.update(|cx| gpui_omarchy::Theme::flexoki_light().apply(cx));
+        cx.update(|cx| {
+            let omarchy = cx.omarchy().clone();
+            assert_eq!(omarchy.font, omarchy.mono_font);
+            assert_eq!(ComponentTheme::global(cx).font_family, omarchy.mono_font);
+            assert_eq!(gpui_kit::base::Theme::global(cx).tokens.typography.sans, omarchy.mono_font);
+        });
+    }
 }

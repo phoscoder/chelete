@@ -13,11 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -25,80 +20,68 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev
+            build-essential clang cmake pkg-config \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig1-dev libvulkan-dev libssl-dev \
+            patchelf
 
-      - name: Install frontend dependencies
-        run: npm ci
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Build frontend
-        run: npm run build
+      - name: Test
+        run: cargo test --locked
 
-      - name: Build Rust backend
-        working-directory: src-tauri
-        run: cargo build --release
+      - name: Build
+        run: cargo build --release --locked --bin chelete
 
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create AppImage
-        working-directory: src-tauri/target/release
+      - name: Create tarball
         run: |
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp chelete AppDir/usr/bin/
-          cp ../../icons/128x128.png AppDir/chelete.png
-          cp ../../icons/128x128.png AppDir/usr/share/icons/hicolor/256x256/apps/chelete.png
-          cat > AppDir/chelete.desktop << EOF
-          [Desktop Entry]
-          Name=Chelete
-          Exec=chelete
-          Icon=chelete
-          Type=Application
-          Categories=Office;Finance;
-          EOF
-          cp AppDir/chelete.desktop AppDir/usr/share/applications/chelete.desktop
+          NAME="chelete_${{ steps.version.outputs.VERSION }}_linux_x86_64"
+          mkdir -p "dist/$NAME"
+          cp target/release/chelete "dist/$NAME/"
+          cp assets/chelete.desktop "dist/$NAME/"
+          cp assets/icons/128x128.png "dist/$NAME/chelete.png"
+          cp LICENSE README.md "dist/$NAME/"
+          tar -C dist -czf "dist/$NAME.tar.gz" "$NAME"
+
+      - name: Create AppImage
+        working-directory: dist
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp ../target/release/chelete AppDir/usr/bin/
+          cp ../assets/icons/128x128.png AppDir/chelete.png
+          cp ../assets/icons/128x128.png AppDir/usr/share/icons/hicolor/256x256/apps/chelete.png
+          cp ../assets/chelete.desktop AppDir/chelete.desktop
+          cp ../assets/chelete.desktop AppDir/usr/share/applications/chelete.desktop
           cat > AppDir/AppRun << 'APPEOF'
           #!/bin/sh
           HERE="$(dirname "$(readlink -f "${0}")")"
           exec "${HERE}/usr/bin/chelete" "$@"
           APPEOF
-          chmod +x AppDir/AppRun
-          chmod +x AppDir/usr/bin/chelete
+          chmod +x AppDir/AppRun AppDir/usr/bin/chelete
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
           ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
 
       - name: Package .deb
-        working-directory: src-tauri/target/release
+        working-directory: dist
         run: |
           DEB_DIR="chelete_${{ steps.version.outputs.VERSION }}_amd64"
-          mkdir -p "$DEB_DIR/DEBIAN"
-          mkdir -p "$DEB_DIR/usr/bin"
-          mkdir -p "$DEB_DIR/usr/share/applications"
-          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
-          cp chelete "$DEB_DIR/usr/bin/"
-          cp ../../icons/128x128.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/chelete.png"
-          cat > "$DEB_DIR/chelete.desktop" << EOF
-          [Desktop Entry]
-          Name=Chelete
-          Exec=chelete
-          Icon=chelete
-          Type=Application
-          Categories=Finance;
-          EOF
+          mkdir -p "$DEB_DIR/DEBIAN" "$DEB_DIR/usr/bin" "$DEB_DIR/usr/share/applications" "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+          cp ../target/release/chelete "$DEB_DIR/usr/bin/"
+          cp ../assets/chelete.desktop "$DEB_DIR/usr/share/applications/"
+          cp ../assets/icons/128x128.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/chelete.png"
           cat > "$DEB_DIR/DEBIAN/control" << EOF
           Package: chelete
           Version: ${{ steps.version.outputs.VERSION }}
           Architecture: amd64
-          Depends: libgtk-3-0, libwebkit2gtk-4.1-0, libappindicator3-1
+          Maintainer: Victor Phos
+          Depends: libvulkan1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libfontconfig1
           Description: Personal finance tracker
+           A fast, keyboard-driven personal finance tracker built for Omarchy.
           EOF
           dpkg-deb --build "$DEB_DIR"
 
@@ -107,5 +90,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            src-tauri/target/release/*.deb
-            src-tauri/target/release/*.AppImage
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.AppImage

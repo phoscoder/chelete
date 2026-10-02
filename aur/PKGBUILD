@@ -1,27 +1,23 @@
 # Maintainer: phoscoder <phoscoder@users.noreply.github.com>
 pkgname=chelete-bin
-pkgver=0.1.0
+pkgver=0.6.0
 pkgrel=1
-pkgdesc='Personal finance tracker'
+pkgdesc='Keyboard-driven personal finance tracker for Omarchy'
 arch=('x86_64')
 url='https://github.com/phoscoder/chelete'
 license=('MIT')
-depends=('gtk3' 'webkit2gtk' 'libappindicator-gtk3' 'librsvg')
+depends=('vulkan-icd-loader' 'libxkbcommon' 'libxkbcommon-x11' 'wayland' 'fontconfig' 'libx11' 'libxcb')
 provides=('chelete')
 conflicts=('chelete')
 
-source=("${url}/releases/download/v${pkgver}/chelete_${pkgver}_amd64.deb")
+source=("${url}/releases/download/v${pkgver}/chelete_${pkgver}_linux_x86_64.tar.gz")
 
 sha256sums=('SKIP')
 
 package() {
-    # Extract the deb package
-    bsdtar -xf "${srcdir}/chelete_${pkgver}_amd64.deb" -C "${pkgdir}"
-
-    # Move files to correct locations
-    mv "${pkgdir}/usr/bin/"* "${pkgdir}/usr/bin/" 2>/dev/null || true
-    mv "${pkgdir}/usr/share/"* "${pkgdir}/usr/share/" 2>/dev/null || true
-
-    # Remove the DEBIAN directory (not needed after extraction)
-    rm -rf "${pkgdir}/DEBIAN"
+    cd "${srcdir}/chelete_${pkgver}_linux_x86_64"
+    install -Dm755 chelete "${pkgdir}/usr/bin/chelete"
+    install -Dm644 chelete.desktop "${pkgdir}/usr/share/applications/chelete.desktop"
+    install -Dm644 chelete.png "${pkgdir}/usr/share/icons/hicolor/256x256/apps/chelete.png"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

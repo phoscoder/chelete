@@ -6,7 +6,6 @@ node_modules/
 # Build
 dist/
 target/
-*.lock
 *.tsbuildinfo
 
 # Environment
@@ -25,5 +24,3 @@ target/
 .DS_Store
 Thumbs.db
 
-# Tauri
-src-tauri/target/

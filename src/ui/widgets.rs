@@ -294,3 +294,16 @@ pub fn plural(count: usize, singular: &str) -> String {
         format!("{count} {singular}s")
     }
 }
+
+pub fn dim(text: impl Into<SharedString>, cx: &App) -> Div {
+    div().text_color(cx.omarchy().secondary).child(text.into())
+}
+
+/// A table cell: fixed width in rems, or flexible when `None`.
+pub fn cell(width: Option<f32>, child: impl IntoElement) -> Div {
+    let base = div().min_w_0().px(rems(0.5));
+    match width {
+        Some(w) => base.w(rems(w)).flex_shrink_0().child(child),
+        None => base.flex_1().child(child),
+    }
+}

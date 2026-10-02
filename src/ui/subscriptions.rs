@@ -250,18 +250,6 @@ impl SubscriptionsScreen {
     }
 }
 
-fn dim(text: impl Into<SharedString>, cx: &gpui_kit::App) -> Div {
-    div().text_color(cx.omarchy().secondary).child(text.into())
-}
-
-fn cell(width: Option<f32>, child: impl IntoElement) -> Div {
-    let base = div().min_w_0().px(rems(0.5));
-    match width {
-        Some(w) => base.w(rems(w)).flex_shrink_0().child(child),
-        None => base.flex_1().child(child),
-    }
-}
-
 impl Render for SubscriptionsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = cx.omarchy().clone();

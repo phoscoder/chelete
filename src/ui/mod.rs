@@ -2,6 +2,7 @@
 mod accounts;
 mod categories;
 mod date_field;
+mod date_filter_control;
 mod icons;
 mod overview;
 mod palette;

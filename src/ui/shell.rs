@@ -1,4 +1,6 @@
+use super::accounts::AccountsScreen;
 use super::overview::{self, OverviewData};
+use super::widgets::ScreenEvent;
 use super::palette::{Command, Palette, PaletteEvent};
 use super::placeholder::placeholder;
 use super::sidebar::sidebar;
@@ -6,7 +8,7 @@ use super::*;
 use chelete_lib::database::DbState;
 use chelete_lib::prefs::Prefs;
 use gpui_kit::{
-    div, prelude::*, Context, Entity, FocusHandle, Focusable, IntoElement, Render, Subscription,
+    div, prelude::*, rems, Context, Entity, FocusHandle, Focusable, IntoElement, Render, Subscription,
     Window,
 };
 use gpui_omarchy::ActiveTheme as _;
@@ -18,6 +20,9 @@ pub struct Shell {
     prefs: Prefs,
     persist: bool,
     overview: OverviewData,
+    accounts: Entity<AccountsScreen>,
+    toast: Option<(u64, String, bool)>,
+    toast_seq: u64,
     palette: Option<Entity<Palette>>,
     focus: FocusHandle,
     _palette_sub: Option<Subscription>,
@@ -33,8 +38,13 @@ impl Shell {
     ) -> Self {
         let focus = cx.focus_handle();
         focus.focus(window, cx);
+        let accounts = cx.new(|_| AccountsScreen::new(db.clone()));
+        cx.subscribe(&accounts, Self::on_screen_event).detach();
         Self {
             overview: OverviewData::load(&db),
+            accounts,
+            toast: None,
+            toast_seq: 0,
             db,
             view: View::Overview,
             prefs,
@@ -56,10 +66,36 @@ impl Shell {
     pub fn navigate(&mut self, view: View, window: &mut Window, cx: &mut Context<Self>) {
         self.close_palette(window, cx);
         self.view = view;
-        if view == View::Overview {
-            self.overview = OverviewData::load(&self.db);
+        match view {
+            View::Overview => self.overview = OverviewData::load(&self.db),
+            View::Accounts => self.accounts.update(cx, |s, cx| s.reload(cx)),
+            _ => {}
         }
         cx.notify();
+    }
+
+    fn on_screen_event<T: 'static>(&mut self, _: Entity<T>, event: &ScreenEvent, cx: &mut Context<Self>) {
+        let ScreenEvent::Toast { message, ok } = event;
+        self.toast_seq += 1;
+        let seq = self.toast_seq;
+        self.toast = Some((seq, message.clone(), *ok));
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(std::time::Duration::from_secs(3)).await;
+            this.update(cx, |this, cx| {
+                if this.toast.as_ref().is_some_and(|(s, ..)| *s == seq) {
+                    this.toast = None;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    #[cfg(test)]
+    pub(super) fn toast_message(&self) -> Option<&str> {
+        self.toast.as_ref().map(|(_, m, _)| m.as_str())
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
@@ -102,7 +138,11 @@ impl Shell {
         let target = match command {
             Command::Go(view) => view,
             Command::AddTransaction | Command::ImportTransactions => View::Transactions,
-            Command::AddAccount => View::Accounts,
+            Command::AddAccount => {
+                self.navigate(View::Accounts, window, cx);
+                self.accounts.update(cx, |s, cx| s.open_add(window, cx));
+                return;
+            }
             Command::AddCategory => View::Categories,
             Command::AddSubscription => View::Subscriptions,
         };
@@ -121,6 +161,7 @@ impl Render for Shell {
         let t = cx.omarchy().clone();
         let content = match self.view {
             View::Overview => overview::render(&self.overview, cx).into_any_element(),
+            View::Accounts => self.accounts.clone().into_any_element(),
             other => placeholder(other, cx).into_any_element(),
         };
         div()
@@ -144,33 +185,32 @@ impl Render for Shell {
             .child(sidebar(self, cx))
             .child(div().flex_1().min_w_0().h_full().child(content))
             .when_some(self.palette.clone(), |el, palette| el.child(palette))
+            .when_some(self.toast.clone(), |el, (_, message, ok)| {
+                el.child(
+                    div()
+                        .absolute()
+                        .bottom(rems(1.25))
+                        .right(rems(1.25))
+                        .px(rems(0.875))
+                        .py(rems(0.625))
+                        .border_1()
+                        .border_color(if ok { t.success } else { t.danger })
+                        .bg(t.surface)
+                        .text_color(if ok { t.success } else { t.danger })
+                        .child(message),
+                )
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chelete_lib::{database, seed};
+    use crate::ui::test_support::{init, seeded_db};
     use gpui_kit::TestAppContext;
-    use rusqlite::Connection;
-
-    fn seeded_db() -> Arc<DbState> {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        database::run_migrations(&conn).unwrap();
-        seed::seed_database(&conn).unwrap();
-        Arc::new(DbState(std::sync::Mutex::new(conn)))
-    }
 
     fn setup(cx: &mut TestAppContext) -> (Entity<Shell>, &mut gpui_kit::VisualTestContext) {
-        cx.update(|cx| {
-            gpui_kit::init(cx);
-            gpui_omarchy::init(cx);
-            // Applying a fixed theme stops the filesystem watcher, which the
-            // deterministic test scheduler rejects.
-            gpui_omarchy::Theme::tokyo_night().apply(cx);
-            bind_keys(cx);
-        });
+        init(cx);
         let db = seeded_db();
         cx.add_window_view(|window, cx| Shell::new(db, Prefs::default(), false, window, cx))
     }
@@ -246,5 +286,18 @@ mod tests {
         cx.simulate_keystrokes("down down enter");
         // Entries are ordered like View::ALL: Overview, Transactions, Accounts.
         assert_eq!(view_of(&shell, cx), View::Accounts);
+    }
+
+    #[gpui_kit::test]
+    fn palette_add_account_opens_the_form(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        cx.simulate_keystrokes("ctrl-k");
+        cx.simulate_input("add account");
+        cx.simulate_keystrokes("enter");
+        assert_eq!(view_of(&shell, cx), View::Accounts);
+        cx.update(|_, cx| {
+            let accounts = shell.read(cx).accounts.clone();
+            assert!(accounts.read(cx).has_dialog(), "add form is open");
+        });
     }
 }

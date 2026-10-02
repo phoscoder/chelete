@@ -1,9 +1,14 @@
 //! GPUI front end: app shell, sidebar, command palette and screens.
+mod accounts;
 mod overview;
 mod palette;
 mod placeholder;
 mod shell;
 mod sidebar;
+mod widgets;
+
+#[cfg(test)]
+mod test_support;
 
 pub use shell::Shell;
 

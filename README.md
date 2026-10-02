@@ -87,6 +87,7 @@ Data lives in `~/.local/share/com.chelete.app/` (the same place earlier versions
 | `Ctrl+O` `T` `A` `C` `U` `P` `S` | Overview, Transactions, Accounts, Categories, Subscriptions, Projections, Settings |
 | `Ctrl+K` | Command palette |
 | `Ctrl+B` | Collapse the sidebar |
+| `Ctrl+=` `Ctrl+-` `Ctrl+0` | Larger text, smaller text, reset (also in Settings) |
 | `Esc` / `Enter` | Close a dialog / submit a form |
 | `Ctrl+Q` | Quit |
 

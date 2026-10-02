@@ -42,6 +42,7 @@ impl AccountsScreen {
         self.accounts.as_deref().unwrap_or(&[])
     }
 
+    #[cfg(test)]
     pub fn has_dialog(&self) -> bool {
         self.dialog.is_some()
     }

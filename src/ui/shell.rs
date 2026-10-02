@@ -1,4 +1,6 @@
 use super::accounts::AccountsScreen;
+use super::categories::CategoriesScreen;
+use super::settings;
 use super::overview::{self, OverviewData};
 use super::widgets::ScreenEvent;
 use super::palette::{Command, Palette, PaletteEvent};
@@ -21,6 +23,7 @@ pub struct Shell {
     persist: bool,
     overview: OverviewData,
     accounts: Entity<AccountsScreen>,
+    categories: Entity<CategoriesScreen>,
     toast: Option<(u64, String, bool)>,
     toast_seq: u64,
     palette: Option<Entity<Palette>>,
@@ -40,9 +43,12 @@ impl Shell {
         focus.focus(window, cx);
         let accounts = cx.new(|_| AccountsScreen::new(db.clone()));
         cx.subscribe(&accounts, Self::on_screen_event).detach();
+        let categories = cx.new(|_| CategoriesScreen::new(db.clone()));
+        cx.subscribe(&categories, Self::on_screen_event).detach();
         Self {
             overview: OverviewData::load(&db),
             accounts,
+            categories,
             toast: None,
             toast_seq: 0,
             db,
@@ -69,6 +75,7 @@ impl Shell {
         match view {
             View::Overview => self.overview = OverviewData::load(&self.db),
             View::Accounts => self.accounts.update(cx, |s, cx| s.reload(cx)),
+            View::Categories => self.categories.update(cx, |s, cx| s.reload(cx)),
             _ => {}
         }
         cx.notify();
@@ -143,7 +150,11 @@ impl Shell {
                 self.accounts.update(cx, |s, cx| s.open_add(window, cx));
                 return;
             }
-            Command::AddCategory => View::Categories,
+            Command::AddCategory => {
+                self.navigate(View::Categories, window, cx);
+                self.categories.update(cx, |s, cx| s.open_add(window, cx));
+                return;
+            }
             Command::AddSubscription => View::Subscriptions,
         };
         self.navigate(target, window, cx);
@@ -162,6 +173,8 @@ impl Render for Shell {
         let content = match self.view {
             View::Overview => overview::render(&self.overview, cx).into_any_element(),
             View::Accounts => self.accounts.clone().into_any_element(),
+            View::Categories => self.categories.clone().into_any_element(),
+            View::Settings => settings::render(cx).into_any_element(),
             other => placeholder(other, cx).into_any_element(),
         };
         div()

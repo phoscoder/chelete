@@ -1,9 +1,12 @@
 //! GPUI front end: app shell, sidebar, command palette and screens.
 mod accounts;
+mod categories;
+mod icons;
 mod overview;
 mod palette;
 mod placeholder;
 mod shell;
+mod settings;
 mod sidebar;
 mod widgets;
 

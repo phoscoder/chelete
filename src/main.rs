@@ -2,7 +2,7 @@ mod ui;
 
 use chelete_lib::database::{self, DbState};
 use chelete_lib::prefs::Prefs;
-use gpui_kit::{px, size, AppContext as _, Bounds, WindowBounds, WindowOptions};
+use gpui_kit::{px, size, AppContext as _, Bounds, SharedString, TitlebarOptions, WindowBounds, WindowOptions};
 use std::sync::Arc;
 
 fn main() {
@@ -30,6 +30,13 @@ fn main() {
                     size(px(1100.), px(700.)),
                     cx,
                 ))),
+                titlebar: Some(TitlebarOptions {
+                    title: Some(SharedString::from("Chelete")),
+                    ..Default::default()
+                }),
+                // Lets window rules and the desktop entry find the app (class "chelete").
+                app_id: Some("chelete".into()),
+                window_min_size: Some(size(px(760.), px(520.))),
                 ..Default::default()
             };
             gpui_kit::open_window(options, cx, |window, cx| {

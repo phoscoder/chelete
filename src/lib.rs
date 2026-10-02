@@ -6,3 +6,4 @@ pub mod import;
 pub mod paging;
 pub mod prefs;
 pub mod seed;
+pub mod subscriptions;

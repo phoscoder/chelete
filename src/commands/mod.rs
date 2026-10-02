@@ -2,8 +2,6 @@ use crate::database::DbState;
 use crate::import::{CsvMapping, CsvPreview, ImportResult, parse_csv_preview, parse_csv_rows};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Account {
@@ -180,8 +178,7 @@ fn generate_id() -> String {
 
 // ── Accounts ─────────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn get_accounts(state: State<'_, DbState>) -> Result<Vec<Account>, String> {
+pub fn get_accounts(state: &DbState) -> Result<Vec<Account>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -213,9 +210,8 @@ pub fn get_accounts(state: State<'_, DbState>) -> Result<Vec<Account>, String> {
     Ok(accounts)
 }
 
-#[tauri::command]
 pub fn create_account(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: CreateAccountRequest,
 ) -> Result<Account, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -251,9 +247,8 @@ pub fn create_account(
     })
 }
 
-#[tauri::command]
 pub fn update_account(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: UpdateAccountRequest,
 ) -> Result<Account, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -291,8 +286,7 @@ pub fn update_account(
     Ok(account)
 }
 
-#[tauri::command]
-pub fn delete_account(state: State<'_, DbState>, id: String) -> Result<(), String> {
+pub fn delete_account(state: &DbState, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE accounts SET deleted_at = datetime('now') WHERE id = ?1",
@@ -328,8 +322,7 @@ fn get_account_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Account, S
 
 // ── Transactions ─────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn get_transactions(state: State<'_, DbState>) -> Result<Vec<Transaction>, String> {
+pub fn get_transactions(state: &DbState) -> Result<Vec<Transaction>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -362,9 +355,8 @@ pub fn get_transactions(state: State<'_, DbState>) -> Result<Vec<Transaction>, S
     Ok(transactions)
 }
 
-#[tauri::command]
 pub fn create_transaction(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: CreateTransactionRequest,
 ) -> Result<Transaction, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -416,9 +408,8 @@ pub fn create_transaction(
     })
 }
 
-#[tauri::command]
 pub fn update_transaction(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: UpdateTransactionRequest,
 ) -> Result<Transaction, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -513,14 +504,12 @@ pub fn update_transaction(
     get_transaction_by_id(&conn, &request.id)
 }
 
-#[tauri::command]
-pub fn delete_transaction(state: State<'_, DbState>, id: String) -> Result<(), String> {
+pub fn delete_transaction(state: &DbState, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     delete_transactions_inner(&conn, &[id])
 }
 
-#[tauri::command]
-pub fn delete_transactions(state: State<'_, DbState>, ids: Vec<String>) -> Result<(), String> {
+pub fn delete_transactions(state: &DbState, ids: Vec<String>) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     delete_transactions_inner(&conn, &ids)
 }
@@ -605,8 +594,7 @@ fn get_transaction_by_id(
 
 // ── Categories ───────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn get_categories(state: State<'_, DbState>) -> Result<Vec<Category>, String> {
+pub fn get_categories(state: &DbState) -> Result<Vec<Category>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -636,9 +624,8 @@ pub fn get_categories(state: State<'_, DbState>) -> Result<Vec<Category>, String
     Ok(categories)
 }
 
-#[tauri::command]
 pub fn create_category(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: CreateCategoryRequest,
 ) -> Result<Category, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -671,9 +658,8 @@ pub fn create_category(
     })
 }
 
-#[tauri::command]
 pub fn update_category(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: UpdateCategoryRequest,
 ) -> Result<Category, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -711,8 +697,7 @@ pub fn update_category(
     Ok(category)
 }
 
-#[tauri::command]
-pub fn delete_category(state: State<'_, DbState>, id: String) -> Result<(), String> {
+pub fn delete_category(state: &DbState, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE categories SET deleted_at = datetime('now') WHERE id = ?1",
@@ -746,8 +731,7 @@ fn get_category_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Category,
 
 // ── Overview ─────────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn get_overview(state: State<'_, DbState>) -> Result<Overview, String> {
+pub fn get_overview(state: &DbState) -> Result<Overview, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     // Total balance from all active accounts
@@ -874,8 +858,7 @@ pub fn get_overview(state: State<'_, DbState>) -> Result<Overview, String> {
 
 // ── Subscriptions ────────────────────────────────────────────────
 
-#[tauri::command]
-pub fn get_subscriptions(state: State<'_, DbState>) -> Result<Vec<Subscription>, String> {
+pub fn get_subscriptions(state: &DbState) -> Result<Vec<Subscription>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -907,9 +890,8 @@ pub fn get_subscriptions(state: State<'_, DbState>) -> Result<Vec<Subscription>,
     Ok(subscriptions)
 }
 
-#[tauri::command]
 pub fn create_subscription(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: CreateSubscriptionRequest,
 ) -> Result<Subscription, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -946,9 +928,8 @@ pub fn create_subscription(
     })
 }
 
-#[tauri::command]
 pub fn update_subscription(
-    state: State<'_, DbState>,
+    state: &DbState,
     request: UpdateSubscriptionRequest,
 ) -> Result<Subscription, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -1014,8 +995,7 @@ pub fn update_subscription(
     get_subscription_by_id(&conn, &request.id)
 }
 
-#[tauri::command]
-pub fn delete_subscription(state: State<'_, DbState>, id: String) -> Result<(), String> {
+pub fn delete_subscription(state: &DbState, id: String) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE subscriptions SET deleted_at = datetime('now') WHERE id = ?1",
@@ -1025,8 +1005,7 @@ pub fn delete_subscription(state: State<'_, DbState>, id: String) -> Result<(), 
     Ok(())
 }
 
-#[tauri::command]
-pub fn delete_subscriptions(state: State<'_, DbState>, ids: Vec<String>) -> Result<(), String> {
+pub fn delete_subscriptions(state: &DbState, ids: Vec<String>) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     if ids.is_empty() {
         return Ok(());
@@ -1041,9 +1020,8 @@ pub fn delete_subscriptions(state: State<'_, DbState>, ids: Vec<String>) -> Resu
     Ok(())
 }
 
-#[tauri::command]
 pub fn transfer(
-    state: State<'_, DbState>,
+    state: &DbState,
     from_account_id: String,
     to_account_id: String,
     amount: i64,
@@ -1155,24 +1133,6 @@ fn get_subscription_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Subsc
 
 // ── Import ───────────────────────────────────────────────────────
 
-#[tauri::command]
-pub async fn open_csv_file_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let file_path = app
-        .dialog()
-        .file()
-        .add_filter("CSV files", &["csv"])
-        .blocking_pick_file();
-
-    match file_path {
-        Some(path) => {
-            let path_buf = path.into_path().map_err(|e| e.to_string())?;
-            Ok(Some(path_buf.to_string_lossy().to_string()))
-        }
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
 pub fn preview_csv_import(
     path: String,
     mapping: CsvMapping,
@@ -1180,9 +1140,8 @@ pub fn preview_csv_import(
     parse_csv_preview(&path, &mapping)
 }
 
-#[tauri::command]
 pub fn import_transactions(
-    state: State<'_, DbState>,
+    state: &DbState,
     path: String,
     mapping: CsvMapping,
     options: ImportOptions,
@@ -1424,38 +1383,12 @@ pub struct ExportData {
     pub subscriptions: Vec<Subscription>,
 }
 
-#[tauri::command]
-pub async fn save_file_dialog(
-    app: tauri::AppHandle,
-    default_name: String,
-    extension: String,
-) -> Result<Option<String>, String> {
-    let file_path = app
-        .dialog()
-        .file()
-        .set_file_name(default_name)
-        .add_filter(&format!("{} files", extension.to_uppercase()),
-            &[extension.trim_start_matches('.')],
-        )
-        .blocking_save_file();
-
-    match file_path {
-        Some(path) => {
-            let path_buf = path.into_path().map_err(|e| e.to_string())?;
-            Ok(Some(path_buf.to_string_lossy().to_string()))
-        }
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
 pub fn write_export_file(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| format!("Failed to write file: {}", e))?;
     Ok(())
 }
 
-#[tauri::command]
-pub fn export_data(state: State<'_, DbState>) -> Result<ExportData, String> {
+pub fn export_data(state: &DbState) -> Result<ExportData, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     Ok(ExportData {
         accounts: load_accounts_for_export(&conn)?,
@@ -1584,11 +1517,4 @@ fn load_subscriptions_for_export(conn: &rusqlite::Connection) -> Result<Vec<Subs
         .map_err(|e| e.to_string())?;
 
     Ok(subscriptions)
-}
-
-// ── Theme ────────────────────────────────────────────────────────
-
-#[tauri::command]
-pub fn get_omarchy_theme() -> Result<crate::theme::OmarchyTheme, String> {
-    crate::theme::detect_theme()
 }

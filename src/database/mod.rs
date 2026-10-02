@@ -1,16 +1,18 @@
 use rusqlite::{Connection, Result};
 use std::fs;
 use std::sync::Mutex;
-use tauri::AppHandle;
-use tauri::Manager;
 
 pub struct DbState(pub Mutex<Connection>);
 
-pub fn init_database(app: &AppHandle) -> Result<Mutex<Connection>> {
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .expect("failed to get app data dir");
+/// Same directory the Tauri build used, so existing data keeps loading.
+pub fn data_dir() -> std::path::PathBuf {
+    dirs::data_dir()
+        .expect("failed to get data dir")
+        .join("com.chelete.app")
+}
+
+pub fn init_database() -> Result<Mutex<Connection>> {
+    let app_dir = data_dir();
     fs::create_dir_all(&app_dir).expect("failed to create app data dir");
 
     let db_path = app_dir.join("chelete.db");

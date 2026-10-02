@@ -1,6 +1,5 @@
 use crate::database::DbState;
 use rusqlite::params;
-use tauri::State;
 use uuid::Uuid;
 
 fn uid() -> String {
@@ -127,8 +126,7 @@ pub fn seed_database(conn: &rusqlite::Connection) -> Result<bool, String> {
     Ok(true)
 }
 
-#[tauri::command]
-pub fn seed_database_command(state: State<'_, DbState>) -> Result<bool, String> {
+pub fn seed_database_command(state: &DbState) -> Result<bool, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     seed_database(&conn)
 }

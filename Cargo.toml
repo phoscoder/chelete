@@ -6,7 +6,7 @@ default-run = "chelete"
 
 [lib]
 name = "chelete_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+path = "src/lib.rs"
 
 [[bin]]
 name = "chelete"
@@ -17,8 +17,6 @@ name = "seed"
 path = "src/bin/seed.rs"
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -26,11 +24,7 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
 dirs = "5"
-tauri-plugin-dialog = "2.7.3"
 csv = "1.4.0"
-
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
 
 [profile.release]
 panic = "abort"

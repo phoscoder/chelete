@@ -36,23 +36,35 @@ Chelete adapts to whichever theme is set in Omarchy. Switch your system theme an
 
 ## Tech Stack
 
-- [Tauri](https://tauri.app/) — native desktop shell
-- [React](https://react.dev/) — UI framework
-- [TypeScript](https://www.typescriptlang.org/) — type safety
-- [SQLite](https://www.sqlite.org/) — local database
-- [Lucide](https://lucide.dev/) — icons
+- [Rust](https://www.rust-lang.org/) — the whole app, UI included
+- [GPUI](https://www.gpui.rs/) through [gpui-kit](https://gpui-kit.com/) — GPU-rendered native UI
+- [gpui-omarchy](https://github.com/huacnlee/gpui-omarchy) — Omarchy-styled controls and live theme following
+- [SQLite](https://www.sqlite.org/) (rusqlite) — local database
+- [Lucide](https://lucide.dev/) — icons, from the gpui-kit asset bundle
+
+## Requirements
+
+Build dependencies on Linux: a Rust toolchain, `clang`, `cmake`, `pkg-config`, and the development packages for Wayland, xkbcommon, fontconfig and Vulkan.
+
+On Arch / Omarchy:
+
+```bash
+sudo pacman -S --needed rust clang cmake pkgconf wayland libxkbcommon libxkbcommon-x11 fontconfig vulkan-icd-loader
+```
 
 ## Development
 
 ```bash
-npm install
-npm run tauri dev
+make dev       # cargo run
+make test      # cargo test (library and headless UI tests)
 ```
+
+The UI tests run the real screens headlessly with simulated keystrokes, so they need no display.
 
 ## Build
 
 ```bash
-npm run tauri build
+make build     # cargo build --release
 ```
 
 ## Usage
@@ -65,6 +77,18 @@ make release-minor     # Bump 0.1.0 -> 0.2.0 + git tag
 make release-major     # Bump 0.1.0 -> 1.0.0 + git tag
 git push origin main --tags  # Triggers GitHub Actions release
 ```
+
+Data lives in `~/.local/share/com.chelete.app/` (the same place earlier versions used, so existing data carries over).
+
+### Keyboard
+
+| Keys | Action |
+|:-----|:-------|
+| `Ctrl+O` `T` `A` `C` `U` `P` `S` | Overview, Transactions, Accounts, Categories, Subscriptions, Projections, Settings |
+| `Ctrl+K` | Command palette |
+| `Ctrl+B` | Collapse the sidebar |
+| `Esc` / `Enter` | Close a dialog / submit a form |
+| `Ctrl+Q` | Quit |
 
 ## Special Thanks
 

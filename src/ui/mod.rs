@@ -41,6 +41,9 @@ actions!(
         PalettePrev,
         PaletteDismiss,
         ModalCancel,
+        ZoomIn,
+        ZoomOut,
+        ZoomReset,
     ]
 );
 
@@ -126,6 +129,10 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("ctrl-s", GoSettings, shell),
         KeyBinding::new("ctrl-k", TogglePalette, shell),
         KeyBinding::new("ctrl-b", ToggleSidebar, shell),
+        KeyBinding::new("ctrl-=", ZoomIn, shell),
+        KeyBinding::new("ctrl-+", ZoomIn, shell),
+        KeyBinding::new("ctrl--", ZoomOut, shell),
+        KeyBinding::new("ctrl-0", ZoomReset, shell),
         KeyBinding::new("ctrl-q", Quit, None),
         KeyBinding::new("down", PaletteNext, Some(PALETTE_CONTEXT)),
         KeyBinding::new("up", PalettePrev, Some(PALETTE_CONTEXT)),

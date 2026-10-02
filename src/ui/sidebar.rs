@@ -83,6 +83,7 @@ pub fn sidebar(shell: &Shell, cx: &mut Context<Shell>) -> Div {
     }));
 
     div()
+        .debug_selector(|| "sidebar".into())
         .flex()
         .flex_col()
         .flex_shrink_0()

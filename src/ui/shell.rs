@@ -1,7 +1,7 @@
 use super::accounts::AccountsScreen;
 use super::categories::CategoriesScreen;
 use super::projections::ProjectionsScreen;
-use super::settings;
+use super::settings::{SettingsEvent, SettingsScreen};
 use super::subscriptions::SubscriptionsScreen;
 use super::transactions::TransactionsScreen;
 use super::overview::OverviewScreen;
@@ -10,7 +10,7 @@ use super::palette::{Command, Palette, PaletteEvent};
 use super::sidebar::sidebar;
 use super::*;
 use chelete_lib::database::DbState;
-use chelete_lib::prefs::Prefs;
+use chelete_lib::prefs::{clamp_text_scale, step_text_scale, Prefs, DEFAULT_TEXT_SCALE};
 use gpui_kit::{
     div, prelude::*, rems, Context, Entity, FocusHandle, Focusable, IntoElement, Render, Subscription,
     Window,
@@ -28,6 +28,7 @@ pub struct Shell {
     subscriptions: Entity<SubscriptionsScreen>,
     projections: Entity<ProjectionsScreen>,
     transactions: Entity<TransactionsScreen>,
+    settings: Entity<SettingsScreen>,
     toast: Option<(u64, String, bool)>,
     toast_seq: u64,
     palette: Option<Entity<Palette>>,
@@ -53,6 +54,14 @@ impl Shell {
         cx.subscribe(&subscriptions, Self::on_screen_event).detach();
         let projections = cx.new(|cx| ProjectionsScreen::new(db.clone(), window, cx));
         let transactions = cx.new(|cx| TransactionsScreen::new(db.clone(), window, cx));
+        let text_scale = clamp_text_scale(prefs.text_scale);
+        super::theme_bridge::set_text_scale(text_scale, window, cx);
+        let settings = cx.new(|cx| SettingsScreen::new(text_scale, window, cx));
+        cx.subscribe_in(&settings, window, |this, _, event: &SettingsEvent, window, cx| {
+            let SettingsEvent::TextScale(percent) = event;
+            this.set_text_scale(*percent, window, cx);
+        })
+        .detach();
         cx.subscribe(&transactions, Self::on_screen_event).detach();
         let overview = cx.new(|cx| OverviewScreen::new(db.clone(), window, cx));
         Self {
@@ -62,6 +71,7 @@ impl Shell {
             subscriptions,
             projections,
             transactions,
+            settings,
             toast: None,
             toast_seq: 0,
             view: View::Overview,
@@ -118,6 +128,23 @@ impl Shell {
     #[cfg(test)]
     pub(super) fn toast_message(&self) -> Option<&str> {
         self.toast.as_ref().map(|(_, m, _)| m.as_str())
+    }
+
+    #[cfg(test)]
+    pub fn text_scale(&self) -> u16 {
+        self.prefs.text_scale
+    }
+
+    /// Resize all text by scaling the window's rem, as a browser zoom would.
+    pub fn set_text_scale(&mut self, percent: u16, window: &mut Window, cx: &mut Context<Self>) {
+        let percent = clamp_text_scale(percent);
+        self.prefs.text_scale = percent;
+        super::theme_bridge::set_text_scale(percent, window, cx);
+        if self.persist {
+            self.prefs.save();
+        }
+        self.settings.update(cx, |s, cx| s.show_scale(percent, cx));
+        cx.notify();
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<Self>) {
@@ -205,7 +232,7 @@ impl Render for Shell {
             View::Subscriptions => self.subscriptions.clone().into_any_element(),
             View::Projections => self.projections.clone().into_any_element(),
             View::Transactions => self.transactions.clone().into_any_element(),
-            View::Settings => settings::render(cx).into_any_element(),
+            View::Settings => self.settings.clone().into_any_element(),
         };
         div()
             .key_context(SHELL_CONTEXT)
@@ -219,6 +246,15 @@ impl Render for Shell {
             .on_action(cx.listener(|this, _: &GoSettings, w, cx| this.navigate(View::Settings, w, cx)))
             .on_action(cx.listener(|this, _: &TogglePalette, w, cx| this.toggle_palette(w, cx)))
             .on_action(cx.listener(|this, _: &ToggleSidebar, _, cx| this.toggle_sidebar(cx)))
+            .on_action(cx.listener(|this, _: &ZoomIn, window, cx| {
+                this.set_text_scale(step_text_scale(this.prefs.text_scale, 1), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ZoomOut, window, cx| {
+                this.set_text_scale(step_text_scale(this.prefs.text_scale, -1), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ZoomReset, window, cx| {
+                this.set_text_scale(DEFAULT_TEXT_SCALE, window, cx)
+            }))
             .size_full()
             .relative()
             .flex()
@@ -380,5 +416,157 @@ mod tests {
             });
             assert_eq!(view_of(&shell, cx), view);
         }
+    }
+
+    fn rem(cx: &mut gpui_kit::VisualTestContext) -> f32 {
+        cx.update(|window, _| f32::from(window.rem_size()))
+    }
+
+    #[gpui_kit::test]
+    fn text_starts_at_the_default_size(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 110));
+        assert!((rem(cx) - 17.6).abs() < 1e-3);
+    }
+
+    #[gpui_kit::test]
+    fn a_saved_size_is_applied_on_startup(cx: &mut TestAppContext) {
+        init(cx);
+        let db = seeded_db();
+        let prefs = Prefs { text_scale: 150, ..Prefs::default() };
+        let (shell, cx) = cx.add_window_view(move |window, cx| Shell::new(db, prefs, false, window, cx));
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 150));
+        assert_eq!(rem(cx), 24.0);
+    }
+
+    #[gpui_kit::test]
+    fn a_nonsense_saved_size_is_pulled_into_range(cx: &mut TestAppContext) {
+        init(cx);
+        let db = seeded_db();
+        let prefs = Prefs { text_scale: 9000, ..Prefs::default() };
+        let (_shell, cx) = cx.add_window_view(move |window, cx| Shell::new(db, prefs, false, window, cx));
+        assert_eq!(rem(cx), 32.0, "clamped to 200%");
+    }
+
+    #[gpui_kit::test]
+    fn ctrl_plus_minus_and_zero_change_the_text_size(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        cx.simulate_keystrokes("ctrl-=");
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 125));
+        assert_eq!(rem(cx), 20.0);
+        cx.simulate_keystrokes("ctrl--");
+        cx.simulate_keystrokes("ctrl--");
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 100));
+        assert_eq!(rem(cx), 16.0);
+        cx.simulate_keystrokes("ctrl-0");
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 110), );
+    }
+
+    #[gpui_kit::test]
+    fn zooming_stops_at_the_smallest_and_largest_sizes(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        for _ in 0..12 {
+            cx.simulate_keystrokes("ctrl--");
+        }
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 70));
+        for _ in 0..12 {
+            cx.simulate_keystrokes("ctrl-=");
+        }
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 200));
+        assert_eq!(rem(cx), 32.0);
+    }
+
+    #[gpui_kit::test]
+    fn the_settings_dropdown_changes_the_text_size(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        let settings = cx.update(|_, cx| shell.read(cx).settings.clone());
+        cx.update(|_, cx| settings.update(cx, |s, cx| s.choose(150, cx)));
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 150));
+        assert_eq!(rem(cx), 24.0);
+    }
+
+    #[gpui_kit::test]
+    fn the_keyboard_updates_the_settings_dropdown_without_looping(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        let settings = cx.update(|_, cx| shell.read(cx).settings.clone());
+        cx.simulate_keystrokes("ctrl-=");
+        cx.update(|_, cx| {
+            assert_eq!(settings.read(cx).shown(), 125, "dropdown follows the shortcut");
+            assert_eq!(shell.read(cx).text_scale(), 125, "and does not push a second change back");
+        });
+        cx.simulate_keystrokes("ctrl-0");
+        cx.update(|_, cx| assert_eq!(settings.read(cx).shown(), 110));
+    }
+
+    fn measure(cx: &mut gpui_kit::VisualTestContext, selector: &'static str) -> f32 {
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        f32::from(cx.debug_bounds(selector).unwrap_or_else(|| panic!("{selector} not drawn")).size.width)
+    }
+
+    #[gpui_kit::test]
+    fn zooming_actually_resizes_what_is_drawn(cx: &mut TestAppContext) {
+        // Navigate somewhere with a page title first.
+        let (shell, cx) = setup(cx);
+        cx.update(|window, cx| shell.update(cx, |s, cx| s.navigate(View::Accounts, window, cx)));
+        let (sidebar, title) = (measure(cx, "sidebar"), measure(cx, "page-title"));
+
+        cx.simulate_keystrokes("ctrl-=");
+        let (sidebar_big, title_big) = (measure(cx, "sidebar"), measure(cx, "page-title"));
+        // 110% -> 125% is a 13.6% increase.
+        assert!(sidebar_big > sidebar * 1.1, "sidebar should widen: {sidebar} -> {sidebar_big}");
+        assert!(title_big > title * 1.1, "title text should grow: {title} -> {title_big}");
+
+        cx.simulate_keystrokes("ctrl-0");
+        let (sidebar_back, title_back) = (measure(cx, "sidebar"), measure(cx, "page-title"));
+        assert!((sidebar_back - sidebar).abs() < 0.5, "reset restores the width");
+        assert!((title_back - title).abs() < 0.5, "reset restores the text");
+    }
+
+    #[gpui_kit::test]
+    fn the_settings_dropdown_resizes_the_layout_too(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        let before = measure(cx, "sidebar");
+        let settings = cx.update(|_, cx| shell.read(cx).settings.clone());
+        cx.update(|_, cx| settings.update(cx, |s, cx| s.choose(200, cx)));
+        let after = measure(cx, "sidebar");
+        assert!(after > before * 1.5, "200% vs 110% should nearly double the sidebar: {before} -> {after}");
+    }
+
+    /// The real app opens its window through `gpui_kit::open_window`, which
+    /// wraps the shell in a Root view. Tests normally skip that wrapper.
+    #[gpui_kit::test]
+    fn zooming_works_in_a_window_opened_the_way_main_opens_it(cx: &mut TestAppContext) {
+        init(cx);
+        let db = seeded_db();
+        let (window, shell) = cx
+            .update(|cx| {
+                gpui_kit::open_window(gpui_kit::WindowOptions::default(), cx, |window, cx| {
+                    cx.new(|cx| Shell::new(db, Prefs::default(), false, window, cx))
+                })
+            })
+            .expect("window opens");
+        let cx = &mut gpui_kit::VisualTestContext::from_window(window, cx);
+        let sidebar_is = |cx: &mut gpui_kit::VisualTestContext, expected: f32| {
+            // Draw a few frames: Root re-applies its own rem size on every one.
+            for _ in 0..3 {
+                cx.update(|window, cx| window.draw(cx).clear(cx));
+            }
+            let width = measure(cx, "sidebar");
+            assert!((width - expected).abs() < 0.6, "sidebar is 15rem = {expected}px, was {width}px");
+        };
+
+        sidebar_is(cx, 15.0 * 17.6); // 110% is the default
+        cx.simulate_keystrokes("ctrl-=");
+        cx.update(|_, cx| assert_eq!(shell.read(cx).text_scale(), 125));
+        sidebar_is(cx, 15.0 * 20.0);
+        cx.simulate_keystrokes("ctrl--");
+        cx.simulate_keystrokes("ctrl--");
+        sidebar_is(cx, 15.0 * 16.0);
+        cx.simulate_keystrokes("ctrl-0");
+        sidebar_is(cx, 15.0 * 17.6);
+
+        let settings = cx.update(|_, cx| shell.read(cx).settings.clone());
+        cx.update(|_, cx| settings.update(cx, |s, cx| s.choose(200, cx)));
+        sidebar_is(cx, 15.0 * 32.0);
     }
 }

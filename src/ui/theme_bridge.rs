@@ -48,6 +48,18 @@ pub fn sync(cx: &mut App) {
     t.chart_5 = o.chart[4];
 }
 
+/// Set the size of one rem for the whole app from a text size percentage.
+///
+/// The window's root re-applies `ComponentTheme.font_size` as the rem size on
+/// every frame, so that value has to carry the setting; setting only the
+/// window's own rem size is undone on the next frame.
+pub fn set_text_scale(percent: u16, window: &mut gpui_kit::Window, cx: &mut App) {
+    let rem = gpui_kit::px(chelete_lib::prefs::rem_size_px(percent));
+    ComponentTheme::global_mut(cx).font_size = rem;
+    window.set_rem_size(rem);
+    window.refresh();
+}
+
 /// Sync now and again whenever the Omarchy theme changes.
 pub fn install(cx: &mut App) {
     sync(cx);

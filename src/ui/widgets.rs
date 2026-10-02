@@ -30,6 +30,7 @@ pub fn page_header(title: &str, actions: impl IntoElement, cx: &App) -> Div {
         .justify_between()
         .child(
             div()
+                .debug_selector(|| "page-title".into())
                 .text_size(rems(1.25))
                 .font_weight(FontWeight::BOLD)
                 .text_color(t.foreground)

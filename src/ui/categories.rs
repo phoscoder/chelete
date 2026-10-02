@@ -226,6 +226,7 @@ pub struct CategoryForm {
     name: Entity<InputState>,
     kind: Entity<ChoiceState>,
     selected_icon: String,
+    _subs: Vec<Subscription>,
 }
 
 impl EventEmitter<FormEvent> for CategoryForm {}
@@ -238,6 +239,7 @@ impl CategoryForm {
         };
         let name_input = text_input_with("e.g. Groceries", &name, window, cx);
         name_input.update(cx, |s, cx| s.focus(window, cx));
+        let _subs = submit_on_enter(&[&name_input], Self::submit, cx);
         Self {
             db,
             editing: editing.map(|c| c.id),
@@ -249,6 +251,7 @@ impl CategoryForm {
                 cx,
             ),
             selected_icon: icon,
+            _subs,
         }
     }
 
@@ -339,7 +342,7 @@ impl Render for CategoryForm {
             body,
             cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)),
             cx,
-        )
+        ).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
 }
 

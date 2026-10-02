@@ -45,6 +45,7 @@ pub struct TransactionsScreen {
     page: usize,
     selected: HashSet<String>,
     dialog: Option<Dialog>,
+    view_focus: gpui_kit::FocusHandle,
     mappings_path: PathBuf,
     _dialog_sub: Option<Subscription>,
     _subs: Vec<Subscription>,
@@ -79,6 +80,7 @@ impl TransactionsScreen {
             page: 1,
             selected: HashSet::new(),
             dialog: None,
+            view_focus: cx.focus_handle(),
             mappings_path: chelete_lib::import::session::SavedMappings::default_path(),
             _dialog_sub: None,
             _subs: subs,
@@ -158,11 +160,12 @@ impl TransactionsScreen {
         }
         let noun = plural(ids.len(), "transaction");
         let plural_s = if ids.len() == 1 { "" } else { "s" };
-        let dialog = cx.new(|_| {
+        let dialog = cx.new(|cx| {
             ConfirmDialog::new(
                 format!("Delete {noun}?"),
                 format!("This will permanently remove the selected transaction{plural_s} and adjust account balances. This action cannot be undone."),
                 "Delete",
+                cx,
             )
         });
         self._dialog_sub = Some(cx.subscribe(&dialog, |this, _, event: &ConfirmEvent, cx| {
@@ -217,7 +220,7 @@ impl TransactionsScreen {
             Ok(d) => d,
             Err(e) => return cx.emit(ScreenEvent::error(format!("Could not read data: {e}"))),
         };
-        let dialog = cx.new(|_| ExportDialog::new(data));
+        let dialog = cx.new(|cx| ExportDialog::new(data, cx));
         self._dialog_sub = Some(cx.subscribe(&dialog, |this, _, event: &ExportEvent, cx| {
             match event {
                 ExportEvent::Cancel => {}
@@ -380,7 +383,7 @@ impl Render for TransactionsScreen {
                                 .justify_end()
                                 .gap(rems(0.125))
                                 .child(icon_button(key("view"), IconName::Eye, "View transaction", ButtonVariant::Secondary, cx)
-                                    .on_click(cx.listener(move |this, _, _, cx| { this.dialog = Some(Dialog::View(view.clone())); cx.notify(); })))
+                                    .on_click(cx.listener(move |this, _, window, cx| { this.dialog = Some(Dialog::View(view.clone())); this.view_focus.focus(window, cx); cx.notify(); })))
                                 .child(icon_button(key("edit"), IconName::Pencil, "Edit transaction", ButtonVariant::Secondary, cx)
                                     .on_click(cx.listener(move |this, _, window, cx| this.open_form(Some(edit.clone()), window, cx))))
                                 .child(icon_button(key("del"), IconName::Trash, "Delete transaction", ButtonVariant::Danger, cx)
@@ -459,7 +462,8 @@ impl TransactionsScreen {
                     .on_click(cx.listener(|this, _, _, cx| this.close_dialog(cx))),
             ),
         );
-        modal("Transaction", body, cx.listener(|this, _, _, cx| this.close_dialog(cx)), cx)
+        modal("Transaction", body, cx.listener(|this, _, _, cx| this.close_dialog(cx)), cx).track_focus(&self.view_focus)
+            .on_action(cx.listener(|this, _: &super::ModalCancel, _, cx| this.close_dialog(cx)))
     }
 }
 
@@ -475,6 +479,7 @@ pub struct TransactionForm {
     account: Entity<ChoiceState>,
     category: Entity<ChoiceState>,
     date: Entity<DatePickerState>,
+    _subs: Vec<Subscription>,
 }
 
 impl EventEmitter<FormEvent> for TransactionForm {}
@@ -505,16 +510,19 @@ impl TransactionForm {
             .unwrap_or_else(|| chrono::Local::now().date_naive());
         let amount_input = text_input_with("0.00", &amount, window, cx);
         amount_input.update(cx, |s, cx| s.focus(window, cx));
+        let description_input = text_input_with("e.g. Groceries", &description, window, cx);
+        let _subs = submit_on_enter(&[&amount_input, &description_input], Self::submit, cx);
         Self {
             db,
             categories: categories.to_vec(),
             kind: kind.clone(),
             amount: amount_input,
-            description: text_input_with("e.g. Groceries", &description, window, cx),
+            description: description_input,
             account: choice(accounts.iter().map(|a| (a.id.clone(), a.name.clone())).collect(), account_id.as_deref(), window, cx),
             category: choice(category_items(categories, &kind), Some(&category_id), window, cx),
             date: date_field::single(Some(date), window, cx),
             editing,
+            _subs,
         }
     }
 
@@ -626,7 +634,7 @@ impl Render for TransactionForm {
             body,
             cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)),
             cx,
-        )
+        ).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
 }
 
@@ -642,13 +650,14 @@ pub enum ExportEvent {
 pub struct ExportDialog {
     data: ExportData,
     format: ExportFormat,
+    focus: ModalFocus,
 }
 
 impl EventEmitter<ExportEvent> for ExportDialog {}
 
 impl ExportDialog {
-    fn new(data: ExportData) -> Self {
-        Self { data, format: ExportFormat::Csv }
+    fn new(data: ExportData, cx: &mut Context<Self>) -> Self {
+        Self { data, format: ExportFormat::Csv, focus: ModalFocus::new(cx) }
     }
 
     /// Render the chosen format and write it to `path`.
@@ -676,7 +685,8 @@ impl ExportDialog {
 }
 
 impl Render for ExportDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.focus.ensure(window, cx);
         let format_button = |id: &'static str, label: &'static str, format: ExportFormat, cx: &mut Context<Self>| {
             button(id, label, if self.format == format { ButtonVariant::Primary } else { ButtonVariant::Outline }, cx)
                 .flex_1()
@@ -705,7 +715,8 @@ impl Render for ExportDialog {
                     .child(button("export-cancel", "Cancel", ButtonVariant::Outline, cx).on_click(cx.listener(|_, _, _, cx| cx.emit(ExportEvent::Cancel))))
                     .child(button("export-go", "Export", ButtonVariant::Primary, cx).on_click(cx.listener(|this, _, _, cx| this.choose_path_and_write(cx)))),
             );
-        modal("Export Data", body, cx.listener(|_, _, _, cx| cx.emit(ExportEvent::Cancel)), cx)
+        modal("Export Data", body, cx.listener(|_, _, _, cx| cx.emit(ExportEvent::Cancel)), cx).track_focus(&self.focus.handle)
+            .on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(ExportEvent::Cancel)))
     }
 }
 
@@ -961,5 +972,22 @@ mod tests {
         });
         let result = cx.update(|_, cx| dialog.read(cx).write_to(std::path::Path::new("/nonexistent-dir/x/out.csv")));
         assert!(result.is_err());
+    }
+
+    #[gpui_kit::test]
+    fn enter_in_the_description_field_saves_the_transaction(cx: &mut TestAppContext) {
+        let (screen, _db, cx) = setup(cx);
+        cx.update(|window, cx| screen.update(cx, |s, cx| s.open_add(window, cx)));
+        let form = form_of(&screen, cx);
+        let (amount, description) = cx.update(|_, cx| (form.read(cx).amount.clone(), form.read(cx).description.clone()));
+        type_into(&amount, "9.99", cx);
+        type_into(&description, "Enter key", cx);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("enter");
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(!s.has_dialog());
+            assert!(s.transactions().iter().any(|t| t.description == "Enter key" && t.amount == 999));
+        });
     }
 }

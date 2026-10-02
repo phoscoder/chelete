@@ -167,6 +167,7 @@ pub struct AddAccountForm {
     name: Entity<InputState>,
     kind: Entity<ChoiceState>,
     balance: Entity<InputState>,
+    _subs: Vec<Subscription>,
 }
 
 impl EventEmitter<FormEvent> for AddAccountForm {}
@@ -175,11 +176,14 @@ impl AddAccountForm {
     fn new(db: Arc<DbState>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let name = text_input("e.g. Main Bank", window, cx);
         name.update(cx, |s, cx| s.focus(window, cx));
+        let balance = text_input("0.00", window, cx);
+        let _subs = submit_on_enter(&[&name, &balance], Self::submit, cx);
         Self {
             db,
             name,
             kind: choice(account_type_options(), Some("cash"), window, cx),
-            balance: text_input("0.00", window, cx),
+            balance,
+            _subs,
         }
     }
 
@@ -235,7 +239,7 @@ impl Render for AddAccountForm {
                             .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             );
-        modal("Add Account", body, cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)), cx)
+        modal("Add Account", body, cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)), cx).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
 }
 
@@ -246,6 +250,7 @@ pub struct TransferForm {
     to: Entity<ChoiceState>,
     amount: Entity<InputState>,
     notes: Entity<InputState>,
+    _subs: Vec<Subscription>,
 }
 
 impl EventEmitter<FormEvent> for TransferForm {}
@@ -258,13 +263,16 @@ impl TransferForm {
         let second = accounts.get(1).or(accounts.first()).map(|a| a.id.clone());
         let amount = text_input("0.00", window, cx);
         amount.update(cx, |s, cx| s.focus(window, cx));
+        let notes = text_input("e.g. Monthly savings", window, cx);
+        let _subs = submit_on_enter(&[&amount, &notes], Self::submit, cx);
         Self {
             db,
             from: choice(items.clone(), first.as_deref(), window, cx),
             to: choice(items, second.as_deref(), window, cx),
             amount,
-            notes: text_input("e.g. Monthly savings", window, cx),
+            notes,
             accounts,
+            _subs,
         }
     }
 
@@ -325,7 +333,7 @@ impl Render for TransferForm {
                             .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             );
-        modal("Transfer Money", body, cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)), cx)
+        modal("Transfer Money", body, cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)), cx).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
 }
 
@@ -450,6 +458,31 @@ mod tests {
             let accounts = screen.read(cx).accounts();
             assert_eq!(accounts.len(), 3);
             assert!(accounts.iter().all(|a| a.id != id));
+        });
+    }
+
+    #[gpui_kit::test]
+    fn escape_closes_the_open_form(cx: &mut TestAppContext) {
+        let (screen, cx, _) = setup(cx);
+        open_add(&screen, cx);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("escape");
+        cx.update(|_, cx| assert!(!screen.read(cx).has_dialog(), "escape dismissed the form"));
+        cx.update(|_, cx| assert_eq!(screen.read(cx).accounts().len(), 4, "nothing was saved"));
+    }
+
+    #[gpui_kit::test]
+    fn enter_in_a_field_submits_the_form(cx: &mut TestAppContext) {
+        let (screen, cx, _) = setup(cx);
+        let form = open_add(&screen, cx);
+        let name = cx.update(|_, cx| form.read(cx).name.clone());
+        type_into(&name, "Keyboard Only", cx);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("enter");
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(!s.has_dialog());
+            assert!(s.accounts().iter().any(|a| a.name == "Keyboard Only"));
         });
     }
 }

@@ -70,6 +70,7 @@ pub fn modal_sized(
     let t = cx.omarchy();
     div()
         .id("modal-backdrop")
+        .key_context(super::MODAL_CONTEXT)
         .absolute()
         .top_0()
         .left_0()
@@ -263,18 +264,24 @@ pub struct ConfirmDialog {
     title: SharedString,
     message: SharedString,
     confirm_label: SharedString,
+    focus: ModalFocus,
 }
 
 impl EventEmitter<ConfirmEvent> for ConfirmDialog {}
-
 impl ConfirmDialog {
-    pub fn new(title: impl Into<SharedString>, message: impl Into<SharedString>, confirm_label: impl Into<SharedString>) -> Self {
-        Self { title: title.into(), message: message.into(), confirm_label: confirm_label.into() }
+    pub fn new(
+        title: impl Into<SharedString>,
+        message: impl Into<SharedString>,
+        confirm_label: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self { title: title.into(), message: message.into(), confirm_label: confirm_label.into(), focus: ModalFocus::new(cx) }
     }
 }
 
 impl Render for ConfirmDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.focus.ensure(window, cx);
         let body = div()
             .flex()
             .flex_col()
@@ -294,7 +301,8 @@ impl Render for ConfirmDialog {
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Confirm))),
                     ),
             );
-        modal(&self.title, body, cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Cancel)), cx)
+        modal(&self.title, body, cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Cancel)), cx).track_focus(&self.focus.handle)
+            .on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(ConfirmEvent::Cancel)))
     }
 }
 
@@ -334,4 +342,43 @@ pub fn simple_pager(
         .child(button("pager-prev", "Previous", ButtonVariant::Outline, cx).disabled(!pager.has_prev()).on_click(on_prev))
         .child(dim(pager.label(), cx))
         .child(button("pager-next", "Next", ButtonVariant::Outline, cx).disabled(!pager.has_next()).on_click(on_next))
+}
+
+/// Keyboard focus for a dialog that has no text field of its own, so Escape
+/// still reaches it. Call [`ModalFocus::ensure`] from `render`.
+pub struct ModalFocus {
+    pub handle: gpui_kit::FocusHandle,
+    taken: bool,
+}
+
+impl ModalFocus {
+    pub fn new<V: 'static>(cx: &mut Context<V>) -> Self {
+        Self { handle: cx.focus_handle(), taken: false }
+    }
+
+    pub fn ensure<V: 'static>(&mut self, window: &mut Window, cx: &mut Context<V>) {
+        if !self.taken {
+            self.taken = true;
+            self.handle.focus(window, cx);
+        }
+    }
+}
+
+/// Run `submit` when Enter is pressed in any of `inputs`.
+pub fn submit_on_enter<V: 'static>(
+    inputs: &[&Entity<InputState>],
+    submit: fn(&mut V, &mut Context<V>),
+    cx: &mut Context<V>,
+) -> Vec<gpui_kit::Subscription> {
+    use gpui_kit::base::input::InputEvent;
+    inputs
+        .iter()
+        .map(|input| {
+            cx.subscribe(*input, move |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::PressEnter { .. }) {
+                    submit(this, cx);
+                }
+            })
+        })
+        .collect()
 }

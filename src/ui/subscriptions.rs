@@ -40,6 +40,7 @@ pub struct SubscriptionsScreen {
     page: usize,
     selected: HashSet<String>,
     dialog: Option<Dialog>,
+    view_focus: gpui_kit::FocusHandle,
     _dialog_sub: Option<GpuiSubscription>,
     _subs: Vec<GpuiSubscription>,
 }
@@ -68,6 +69,7 @@ impl SubscriptionsScreen {
             page: 1,
             selected: HashSet::new(),
             dialog: None,
+            view_focus: cx.focus_handle(),
             _dialog_sub: None,
             _subs: subs,
         };
@@ -154,7 +156,7 @@ impl SubscriptionsScreen {
             return;
         }
         let noun = plural(ids.len(), "subscription");
-        let dialog = cx.new(|_| {
+        let dialog = cx.new(|cx| {
             ConfirmDialog::new(
                 format!("Delete {noun}?"),
                 format!(
@@ -162,6 +164,7 @@ impl SubscriptionsScreen {
                     if ids.len() == 1 { "" } else { "s" }
                 ),
                 "Delete",
+                cx,
             )
         });
         self._dialog_sub = Some(cx.subscribe(&dialog, |this, _, event: &ConfirmEvent, cx| {
@@ -351,7 +354,7 @@ impl Render for SubscriptionsScreen {
                                 .justify_end()
                                 .gap(rems(0.125))
                                 .child(icon_button(key("view"), IconName::Eye, "View subscription", ButtonVariant::Secondary, cx)
-                                    .on_click(cx.listener(move |this, _, _, cx| { this.dialog = Some(Dialog::View(view.clone())); cx.notify(); })))
+                                    .on_click(cx.listener(move |this, _, window, cx| { this.dialog = Some(Dialog::View(view.clone())); this.view_focus.focus(window, cx); cx.notify(); })))
                                 .child(icon_button(key("edit"), IconName::Pencil, "Edit subscription", ButtonVariant::Secondary, cx)
                                     .on_click(cx.listener(move |this, _, window, cx| this.open_form(Some(edit.clone()), window, cx))))
                                 .child(icon_button(key("pay"), IconName::CreditCard, "Record payment", ButtonVariant::Secondary, cx)
@@ -433,7 +436,8 @@ impl SubscriptionsScreen {
                         .on_click(cx.listener(|this, _, _, cx| this.close_dialog(cx))),
                 ),
             );
-        modal("Subscription", body, cx.listener(|this, _, _, cx| this.close_dialog(cx)), cx)
+        modal("Subscription", body, cx.listener(|this, _, _, cx| this.close_dialog(cx)), cx).track_focus(&self.view_focus)
+            .on_action(cx.listener(|this, _: &super::ModalCancel, _, cx| this.close_dialog(cx)))
     }
 }
 
@@ -446,6 +450,7 @@ pub struct SubscriptionForm {
     category: Entity<ChoiceState>,
     account: Entity<ChoiceState>,
     start_date: Entity<DatePickerState>,
+    _subs: Vec<GpuiSubscription>,
 }
 
 impl EventEmitter<FormEvent> for SubscriptionForm {}
@@ -478,15 +483,18 @@ impl SubscriptionForm {
         };
         let name_input = text_input_with("e.g. Netflix", &name, window, cx);
         name_input.update(cx, |s, cx| s.focus(window, cx));
+        let amount_input = text_input_with("0.00", &amount, window, cx);
+        let _subs = submit_on_enter(&[&name_input, &amount_input], Self::submit, cx);
         Self {
             db,
             editing: editing.map(|s| s.id),
             name: name_input,
-            amount: text_input_with("0.00", &amount, window, cx),
+            amount: amount_input,
             frequency: choice(frequency_items, Some(&frequency), window, cx),
             category: choice(category_items, Some(&category), window, cx),
             account: choice(account_items, Some(&account), window, cx),
             start_date: date_field::single(start, window, cx),
+            _subs,
         }
     }
 
@@ -573,7 +581,7 @@ impl Render for SubscriptionForm {
             body,
             cx.listener(|_, _, _, cx| cx.emit(FormEvent::Cancel)),
             cx,
-        )
+        ).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
 }
 
@@ -777,5 +785,23 @@ mod tests {
         let (screen, _db, cx) = setup(cx);
         cx.update(|window, cx| screen.update(cx, |s, cx| s.open_add(window, cx)));
         cx.update(|_, cx| assert!(screen.read(cx).has_dialog()));
+    }
+
+    #[gpui_kit::test]
+    fn escape_dismisses_the_delete_confirmation_without_deleting(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let sub = make(&db, "Keep me", 100, "monthly");
+        reload(&screen, cx);
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.ask_delete(vec![sub.id.clone()], cx)));
+        cx.update(|_, cx| assert!(screen.read(cx).has_dialog()));
+        // The dialog takes focus while drawing its first frame; a person presses
+        // a key some frames later.
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("escape");
+        cx.update(|_, cx| {
+            assert!(!screen.read(cx).has_dialog());
+            assert_eq!(screen.read(cx).subscriptions().len(), 1);
+        });
     }
 }

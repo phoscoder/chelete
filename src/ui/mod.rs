@@ -40,6 +40,7 @@ actions!(
         PaletteNext,
         PalettePrev,
         PaletteDismiss,
+        ModalCancel,
     ]
 );
 
@@ -106,6 +107,7 @@ impl View {
 /// so text inputs keep their own Ctrl+A / Ctrl+C / Ctrl+S behavior.
 pub const SHELL_CONTEXT: &str = "Shell";
 pub const PALETTE_CONTEXT: &str = "Palette";
+pub const MODAL_CONTEXT: &str = "Modal";
 
 pub fn install(cx: &mut App) {
     bind_keys(cx);
@@ -128,5 +130,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("down", PaletteNext, Some(PALETTE_CONTEXT)),
         KeyBinding::new("up", PalettePrev, Some(PALETTE_CONTEXT)),
         KeyBinding::new("escape", PaletteDismiss, Some(PALETTE_CONTEXT)),
+        KeyBinding::new("escape", ModalCancel, Some(MODAL_CONTEXT)),
     ]);
 }

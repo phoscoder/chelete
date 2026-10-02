@@ -83,6 +83,7 @@ pub struct CsvImportDialog {
     saved: SavedMappings,
     saved_path: PathBuf,
     syncing: bool,
+    focus: ModalFocus,
     _subs: Vec<Subscription>,
 }
 
@@ -140,6 +141,7 @@ impl CsvImportDialog {
             accounts,
             categories,
             syncing: false,
+            focus: ModalFocus::new(cx),
             _subs: subs,
         }
     }
@@ -489,6 +491,7 @@ impl CsvImportDialog {
 
 impl Render for CsvImportDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.focus.ensure(window, cx);
         let error = self.error.clone().map(|e| alert(e, Status::Error, cx));
         let stage = match self.stage {
             Stage::Mapping => self.mapping_stage(window, cx),
@@ -502,7 +505,8 @@ impl Render for CsvImportDialog {
             body,
             cx.listener(|_, _, _, cx| cx.emit(CsvImportEvent::Cancel)),
             cx,
-        )
+        ).track_focus(&self.focus.handle)
+            .on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(CsvImportEvent::Cancel)))
     }
 }
 

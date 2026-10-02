@@ -25,6 +25,8 @@ chrono = { version = "0.4", features = ["serde"] }
 toml = "0.8"
 dirs = "5"
 csv = "1.4.0"
+gpui-kit = { version = "=0.7.0" }
+gpui-omarchy = "0.2.0"
 
 [profile.release]
 panic = "abort"
@@ -32,3 +34,6 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[dev-dependencies]
+gpui-kit = { version = "=0.7.0", features = ["test-support"] }

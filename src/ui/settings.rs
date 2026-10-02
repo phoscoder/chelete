@@ -1,4 +1,4 @@
-use super::widgets::page_header;
+use super::widgets::{element_tile, page_header, TileDetail};
 use gpui_kit::{div, prelude::*, rems, App, Div, IntoElement};
 use gpui_omarchy::{panel, separator, ActiveTheme as _};
 
@@ -38,15 +38,7 @@ pub fn render(cx: &App) -> impl IntoElement {
                 .flex()
                 .items_center()
                 .gap(rems(0.75))
-                .child(
-                    div()
-                        .px(rems(0.75))
-                        .py(rems(0.5))
-                        .border_1()
-                        .border_color(t.accent)
-                        .text_color(t.accent)
-                        .child("115 Ch"),
-                )
+                .child(element_tile(4.5, TileDetail::Full, cx))
                 .child(
                     div()
                         .child(div().text_size(rems(1.)).font_weight(gpui_kit::FontWeight::BOLD).child("Chelete"))

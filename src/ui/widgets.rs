@@ -382,3 +382,92 @@ pub fn submit_on_enter<V: 'static>(
         })
         .collect()
 }
+
+// ── logo ────────────────────────────────────────────────────────────
+
+pub const ELEMENT_NUMBER: &str = "17";
+pub const ELEMENT_SYMBOL: &str = "Ch";
+pub const ELEMENT_NAME: &str = "Chlorine";
+pub const ELEMENT_MASS: &str = "35.45";
+
+/// How much of the element tile to draw.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TileDetail {
+    /// Atomic number and symbol.
+    Compact,
+    /// Adds the element name along the bottom.
+    Named,
+    /// Adds the atomic mass in the top right corner as well.
+    Full,
+}
+
+/// A periodic-table tile: atomic number top left, the symbol large in the
+/// middle and the name along the bottom. It is set in the font chosen with
+/// `omarchy font set` (read from fontconfig by gpui-omarchy), so it matches the
+/// terminal and the rest of the desktop. `size` is the side length in rems.
+pub fn element_tile(size: f32, detail: TileDetail, cx: &App) -> Div {
+    let t = cx.omarchy();
+    let small = |factor: f32| rems((size * factor).max(0.5));
+    div()
+        .relative()
+        .size(rems(size))
+        .flex_shrink_0()
+        .border_1()
+        .border_color(t.accent)
+        .text_color(t.accent)
+        .font_family(t.mono_font.clone())
+        .child(
+            div()
+                .absolute()
+                .top(rems(size * 0.05))
+                .left(rems(size * 0.09))
+                .text_size(small(0.19))
+                .child(ELEMENT_NUMBER),
+        )
+        .child(
+            div()
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .when(detail != TileDetail::Compact, |symbol| symbol.pb(rems(size * 0.1)))
+                .text_size(rems(size * 0.4))
+                .font_weight(FontWeight::BOLD)
+                .child(ELEMENT_SYMBOL),
+        )
+        .when(detail == TileDetail::Full, |tile| {
+            tile.child(
+                div()
+                    .absolute()
+                    .top(rems(size * 0.05))
+                    .right(rems(size * 0.09))
+                    .text_size(small(0.15))
+                    .child(ELEMENT_MASS),
+            )
+        })
+        .when(detail != TileDetail::Compact, |tile| {
+            tile.child(
+                div()
+                    .absolute()
+                    .bottom(rems(size * 0.05))
+                    .w_full()
+                    .flex()
+                    .justify_center()
+                    .text_size(small(0.15))
+                    .child(ELEMENT_NAME),
+            )
+        })
+}
+
+#[cfg(test)]
+mod logo_tests {
+    use super::*;
+
+    #[test]
+    fn the_tile_reads_17_ch_chlorine() {
+        assert_eq!(ELEMENT_NUMBER, "17");
+        assert_eq!(ELEMENT_SYMBOL, "Ch");
+        assert_eq!(ELEMENT_NAME, "Chlorine");
+        assert_eq!(ELEMENT_MASS, "35.45");
+    }
+}

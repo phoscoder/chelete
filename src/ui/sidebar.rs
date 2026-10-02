@@ -1,4 +1,5 @@
 use super::shell::Shell;
+use super::widgets::{element_tile, TileDetail};
 use super::{View, TogglePalette, ToggleSidebar};
 use gpui_kit::{div, prelude::*, rems, Context, Div, SharedString};
 use gpui_omarchy::{button, icon, keycap, ActiveTheme as _, ButtonVariant, IconName};
@@ -99,11 +100,21 @@ pub fn sidebar(shell: &Shell, cx: &mut Context<Shell>) -> Div {
             div()
                 .flex()
                 .items_center()
-                .justify_center()
-                .py(rems(0.75))
-                .text_color(t.accent)
-                .font_weight(gpui_kit::FontWeight::BOLD)
-                .child(if collapsed { "Ch" } else { "115  Ch" }),
+                .gap(rems(0.625))
+                .py(rems(0.5))
+                .when(collapsed, |row| row.justify_center())
+                .child(if collapsed {
+                    element_tile(2.25, TileDetail::Compact, cx)
+                } else {
+                    element_tile(3.25, TileDetail::Named, cx)
+                })
+                .when(!collapsed, |row| {
+                    row.child(
+                        div()
+                            .child(div().text_size(rems(0.9375)).font_weight(gpui_kit::FontWeight::BOLD).text_color(t.foreground).child("Chelete"))
+                            .child(div().text_color(t.secondary).child("Personal finance")),
+                    )
+                }),
         )
         .children(nav)
         .child(div().flex_1())

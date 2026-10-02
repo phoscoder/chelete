@@ -1153,7 +1153,7 @@ pub fn import_transactions(
 
     let accounts = load_accounts(&tx)?;
     let categories = load_categories(&tx)?;
-    let existing = load_existing_transactions(&tx)?;
+    let mut existing = load_existing_transactions(&tx)?;
 
     let mut imported = 0usize;
     let mut skipped = 0usize;
@@ -1237,6 +1237,8 @@ pub fn import_transactions(
             params![balance_change, account_id],
         ).map_err(|e| e.to_string())?;
 
+        // Later rows in the same file are duplicates of this one too.
+        existing.push((account_id, date, amount_cents, description));
         imported += 1;
     }
 
@@ -1517,4 +1519,175 @@ fn load_subscriptions_for_export(conn: &rusqlite::Connection) -> Result<Vec<Subs
         .map_err(|e| e.to_string())?;
 
     Ok(subscriptions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::import::CsvMapping;
+    use rusqlite::Connection;
+    use std::sync::Mutex;
+
+    fn seeded() -> DbState {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        crate::database::run_migrations(&conn).unwrap();
+        crate::seed::seed_database(&conn).unwrap();
+        DbState(Mutex::new(conn))
+    }
+
+    fn csv(name: &str, body: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("chelete-cmd-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("in.csv");
+        std::fs::write(&path, body).unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    fn mapping_for(path: &str, account_id: &str) -> CsvMapping {
+        let preview = crate::import::parse_csv_preview(path, &CsvMapping::default()).unwrap();
+        let mut mapping = CsvMapping::from_headers(&preview.headers);
+        mapping.default_account_id = Some(account_id.to_string());
+        mapping
+    }
+
+    fn options(account_id: &str, skip: bool) -> ImportOptions {
+        ImportOptions {
+            default_account_id: Some(account_id.into()),
+            default_category_id: None,
+            default_currency: Some("USD".into()),
+            skip_duplicates: skip,
+        }
+    }
+
+    const REPEATS: &str = "Date,Description,Debit,Credit\n2026-03-01,Coffee,4.50,\n2026-03-01,Coffee,4.50,\n2026-03-02,Salary,,2000.00\n";
+
+    #[test]
+    fn import_skips_repeats_within_the_same_file() {
+        let db = seeded();
+        let account = get_accounts(&db).unwrap().remove(0);
+        let path = csv("within", REPEATS);
+        let result = import_transactions(&db, path.clone(), mapping_for(&path, &account.id), options(&account.id, true)).unwrap();
+        assert_eq!((result.imported, result.skipped), (2, 1));
+        let after = get_accounts(&db).unwrap().into_iter().find(|a| a.id == account.id).unwrap();
+        assert_eq!(after.balance, account.balance - 450 + 200000, "only one coffee hit the balance");
+    }
+
+    #[test]
+    fn import_skips_rows_already_in_the_database() {
+        let db = seeded();
+        let account = get_accounts(&db).unwrap().remove(0);
+        let path = csv("existing", REPEATS);
+        let m = mapping_for(&path, &account.id);
+        import_transactions(&db, path.clone(), m.clone(), options(&account.id, true)).unwrap();
+        let again = import_transactions(&db, path, m, options(&account.id, true)).unwrap();
+        assert_eq!((again.imported, again.skipped), (0, 3));
+    }
+
+    #[test]
+    fn import_without_skipping_keeps_every_row() {
+        let db = seeded();
+        let account = get_accounts(&db).unwrap().remove(0);
+        let before = get_transactions(&db).unwrap().len();
+        let path = csv("keepall", REPEATS);
+        let result = import_transactions(&db, path.clone(), mapping_for(&path, &account.id), options(&account.id, false)).unwrap();
+        assert_eq!((result.imported, result.skipped), (3, 0));
+        assert_eq!(get_transactions(&db).unwrap().len(), before + 3);
+    }
+
+    #[test]
+    fn same_row_on_a_different_account_is_not_a_duplicate() {
+        let db = seeded();
+        let accounts = get_accounts(&db).unwrap();
+        let path = csv("twoaccounts", "Date,Description,Debit,Credit\n2026-03-01,Coffee,4.50,\n");
+        let first = import_transactions(&db, path.clone(), mapping_for(&path, &accounts[0].id), options(&accounts[0].id, true)).unwrap();
+        let second = import_transactions(&db, path.clone(), mapping_for(&path, &accounts[1].id), options(&accounts[1].id, true)).unwrap();
+        assert_eq!((first.imported, second.imported), (1, 1));
+    }
+
+    fn new_txn(account_id: &str, kind: &str, amount: i64) -> CreateTransactionRequest {
+        CreateTransactionRequest {
+            account_id: account_id.into(),
+            category_id: None,
+            transaction_type: kind.into(),
+            amount,
+            currency: "USD".into(),
+            description: "t".into(),
+            merchant: None,
+            notes: None,
+            transaction_date: "2026-03-01".into(),
+        }
+    }
+
+    fn balance(db: &DbState, id: &str) -> i64 {
+        get_accounts(db).unwrap().into_iter().find(|a| a.id == id).unwrap().balance
+    }
+
+    #[test]
+    fn transactions_move_the_account_balance_and_deleting_reverses_it() {
+        let db = seeded();
+        let id = get_accounts(&db).unwrap().remove(0).id;
+        let start = balance(&db, &id);
+        let expense = create_transaction(&db, new_txn(&id, "expense", 1000)).unwrap();
+        let income = create_transaction(&db, new_txn(&id, "income", 2500)).unwrap();
+        assert_eq!(balance(&db, &id), start - 1000 + 2500);
+        delete_transactions(&db, vec![expense.id, income.id]).unwrap();
+        assert_eq!(balance(&db, &id), start);
+    }
+
+    #[test]
+    fn editing_an_amount_adjusts_the_balance_by_the_difference() {
+        let db = seeded();
+        let id = get_accounts(&db).unwrap().remove(0).id;
+        let t = create_transaction(&db, new_txn(&id, "expense", 1000)).unwrap();
+        let after_create = balance(&db, &id);
+        update_transaction(
+            &db,
+            UpdateTransactionRequest {
+                id: t.id,
+                account_id: None,
+                category_id: None,
+                transaction_type: None,
+                amount: Some(1600),
+                currency: None,
+                description: None,
+                merchant: None,
+                notes: None,
+                transaction_date: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(balance(&db, &id), after_create - 600);
+    }
+
+    #[test]
+    fn transfer_moves_money_and_rejects_the_same_account() {
+        let db = seeded();
+        let accounts = get_accounts(&db).unwrap();
+        let (a, b) = (accounts[0].id.clone(), accounts[1].id.clone());
+        let (sa, sb) = (balance(&db, &a), balance(&db, &b));
+        transfer(&db, a.clone(), b.clone(), 700, "USD".into(), None).unwrap();
+        assert_eq!((balance(&db, &a), balance(&db, &b)), (sa - 700, sb + 700));
+        assert!(transfer(&db, a.clone(), a, 100, "USD".into(), None).is_err());
+    }
+
+    #[test]
+    fn deleted_accounts_and_categories_disappear_from_lists() {
+        let db = seeded();
+        let account = get_accounts(&db).unwrap().remove(0);
+        delete_account(&db, account.id.clone()).unwrap();
+        assert!(get_accounts(&db).unwrap().iter().all(|a| a.id != account.id));
+        let category = get_categories(&db).unwrap().remove(0);
+        delete_category(&db, category.id.clone()).unwrap();
+        assert!(get_categories(&db).unwrap().iter().all(|c| c.id != category.id));
+    }
+
+    #[test]
+    fn overview_totals_match_the_transactions() {
+        let db = seeded();
+        let overview = get_overview(&db).unwrap();
+        let accounts_total: i64 = get_accounts(&db).unwrap().iter().map(|a| a.balance).sum();
+        assert_eq!(overview.total_balance, accounts_total);
+        assert!(overview.total_income > 0 && overview.total_expenses > 0);
+    }
 }

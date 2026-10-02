@@ -3,6 +3,7 @@ use super::categories::CategoriesScreen;
 use super::projections::ProjectionsScreen;
 use super::settings;
 use super::subscriptions::SubscriptionsScreen;
+use super::transactions::TransactionsScreen;
 use super::overview::{self, OverviewData};
 use super::widgets::ScreenEvent;
 use super::palette::{Command, Palette, PaletteEvent};
@@ -28,6 +29,7 @@ pub struct Shell {
     categories: Entity<CategoriesScreen>,
     subscriptions: Entity<SubscriptionsScreen>,
     projections: Entity<ProjectionsScreen>,
+    transactions: Entity<TransactionsScreen>,
     toast: Option<(u64, String, bool)>,
     toast_seq: u64,
     palette: Option<Entity<Palette>>,
@@ -52,12 +54,15 @@ impl Shell {
         let subscriptions = cx.new(|cx| SubscriptionsScreen::new(db.clone(), window, cx));
         cx.subscribe(&subscriptions, Self::on_screen_event).detach();
         let projections = cx.new(|cx| ProjectionsScreen::new(db.clone(), window, cx));
+        let transactions = cx.new(|cx| TransactionsScreen::new(db.clone(), window, cx));
+        cx.subscribe(&transactions, Self::on_screen_event).detach();
         Self {
             overview: OverviewData::load(&db),
             accounts,
             categories,
             subscriptions,
             projections,
+            transactions,
             toast: None,
             toast_seq: 0,
             db,
@@ -87,6 +92,7 @@ impl Shell {
             View::Categories => self.categories.update(cx, |s, cx| s.reload(cx)),
             View::Subscriptions => self.subscriptions.update(cx, |s, cx| s.reload(cx)),
             View::Projections => self.projections.update(cx, |s, cx| s.reload(cx)),
+            View::Transactions => self.transactions.update(cx, |s, cx| s.reload(cx)),
             _ => {}
         }
         cx.notify();
@@ -155,7 +161,12 @@ impl Shell {
     fn run(&mut self, command: Command, window: &mut Window, cx: &mut Context<Self>) {
         let target = match command {
             Command::Go(view) => view,
-            Command::AddTransaction | Command::ImportTransactions => View::Transactions,
+            Command::AddTransaction => {
+                self.navigate(View::Transactions, window, cx);
+                self.transactions.update(cx, |s, cx| s.open_add(window, cx));
+                return;
+            }
+            Command::ImportTransactions => View::Transactions,
             Command::AddAccount => {
                 self.navigate(View::Accounts, window, cx);
                 self.accounts.update(cx, |s, cx| s.open_add(window, cx));
@@ -191,6 +202,7 @@ impl Render for Shell {
             View::Categories => self.categories.clone().into_any_element(),
             View::Subscriptions => self.subscriptions.clone().into_any_element(),
             View::Projections => self.projections.clone().into_any_element(),
+            View::Transactions => self.transactions.clone().into_any_element(),
             View::Settings => settings::render(cx).into_any_element(),
             other => placeholder(other, cx).into_any_element(),
         };

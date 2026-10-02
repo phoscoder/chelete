@@ -13,6 +13,7 @@ mod settings;
 mod sidebar;
 mod subscriptions;
 mod theme_bridge;
+mod transactions;
 mod widgets;
 
 #[cfg(test)]

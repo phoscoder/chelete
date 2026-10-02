@@ -100,6 +100,7 @@ impl TransactionsScreen {
         cx.notify();
     }
 
+    #[cfg(test)]
     pub fn transactions(&self) -> &[Transaction] {
         &self.transactions
     }

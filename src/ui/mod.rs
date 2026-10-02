@@ -7,7 +7,6 @@ mod date_filter_control;
 mod icons;
 mod overview;
 mod palette;
-mod placeholder;
 mod projections;
 mod shell;
 mod settings;

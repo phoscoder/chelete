@@ -4,10 +4,9 @@ use super::projections::ProjectionsScreen;
 use super::settings;
 use super::subscriptions::SubscriptionsScreen;
 use super::transactions::TransactionsScreen;
-use super::overview::{self, OverviewData};
+use super::overview::OverviewScreen;
 use super::widgets::ScreenEvent;
 use super::palette::{Command, Palette, PaletteEvent};
-use super::placeholder::placeholder;
 use super::sidebar::sidebar;
 use super::*;
 use chelete_lib::database::DbState;
@@ -20,11 +19,10 @@ use gpui_omarchy::ActiveTheme as _;
 use std::sync::Arc;
 
 pub struct Shell {
-    db: Arc<DbState>,
     view: View,
     prefs: Prefs,
     persist: bool,
-    overview: OverviewData,
+    overview: Entity<OverviewScreen>,
     accounts: Entity<AccountsScreen>,
     categories: Entity<CategoriesScreen>,
     subscriptions: Entity<SubscriptionsScreen>,
@@ -56,8 +54,9 @@ impl Shell {
         let projections = cx.new(|cx| ProjectionsScreen::new(db.clone(), window, cx));
         let transactions = cx.new(|cx| TransactionsScreen::new(db.clone(), window, cx));
         cx.subscribe(&transactions, Self::on_screen_event).detach();
+        let overview = cx.new(|cx| OverviewScreen::new(db.clone(), window, cx));
         Self {
-            overview: OverviewData::load(&db),
+            overview,
             accounts,
             categories,
             subscriptions,
@@ -65,7 +64,6 @@ impl Shell {
             transactions,
             toast: None,
             toast_seq: 0,
-            db,
             view: View::Overview,
             prefs,
             persist,
@@ -87,7 +85,7 @@ impl Shell {
         self.close_palette(window, cx);
         self.view = view;
         match view {
-            View::Overview => self.overview = OverviewData::load(&self.db),
+            View::Overview => self.overview.update(cx, |s, cx| s.reload(window, cx)),
             View::Accounts => self.accounts.update(cx, |s, cx| s.reload(cx)),
             View::Categories => self.categories.update(cx, |s, cx| s.reload(cx)),
             View::Subscriptions => self.subscriptions.update(cx, |s, cx| s.reload(cx)),
@@ -201,14 +199,13 @@ impl Render for Shell {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = cx.omarchy().clone();
         let content = match self.view {
-            View::Overview => overview::render(&self.overview, cx).into_any_element(),
+            View::Overview => self.overview.clone().into_any_element(),
             View::Accounts => self.accounts.clone().into_any_element(),
             View::Categories => self.categories.clone().into_any_element(),
             View::Subscriptions => self.subscriptions.clone().into_any_element(),
             View::Projections => self.projections.clone().into_any_element(),
             View::Transactions => self.transactions.clone().into_any_element(),
             View::Settings => settings::render(cx).into_any_element(),
-            other => placeholder(other, cx).into_any_element(),
         };
         div()
             .key_context(SHELL_CONTEXT)
@@ -271,7 +268,7 @@ mod tests {
         cx.update(|_, cx| {
             let shell = shell.read(cx);
             assert_eq!(shell.view(), View::Overview);
-            let overview = shell.overview.result.as_ref().expect("overview loads");
+            let overview = shell.overview.read(cx).overview().expect("overview loads");
             assert_eq!(overview.accounts.len(), 4);
         });
     }
@@ -345,5 +342,40 @@ mod tests {
             let accounts = shell.read(cx).accounts.clone();
             assert!(accounts.read(cx).has_dialog(), "add form is open");
         });
+    }
+
+    #[gpui_kit::test]
+    fn toasts_show_then_clear_themselves(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        let accounts = cx.update(|_, cx| shell.read(cx).accounts.clone());
+        cx.update(|_, cx| accounts.update(cx, |_, cx| cx.emit(ScreenEvent::ok("Saved it"))));
+        cx.update(|_, cx| assert_eq!(shell.read(cx).toast_message(), Some("Saved it")));
+        cx.executor().advance_clock(std::time::Duration::from_secs(4));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert_eq!(shell.read(cx).toast_message(), None, "gone after three seconds"));
+    }
+
+    #[gpui_kit::test]
+    fn a_newer_toast_is_not_cleared_by_an_older_timer(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        let accounts = cx.update(|_, cx| shell.read(cx).accounts.clone());
+        cx.update(|_, cx| accounts.update(cx, |_, cx| cx.emit(ScreenEvent::ok("first"))));
+        cx.executor().advance_clock(std::time::Duration::from_secs(2));
+        cx.update(|_, cx| accounts.update(cx, |_, cx| cx.emit(ScreenEvent::error("second"))));
+        cx.executor().advance_clock(std::time::Duration::from_millis(1500));
+        cx.run_until_parked();
+        cx.update(|_, cx| assert_eq!(shell.read(cx).toast_message(), Some("second"), "first timer fired but must not clear the newer toast"));
+    }
+
+    #[gpui_kit::test]
+    fn every_view_renders(cx: &mut TestAppContext) {
+        let (shell, cx) = setup(cx);
+        for view in View::ALL {
+            cx.update(|window, cx| shell.update(cx, |s, cx| s.navigate(view, window, cx)));
+            cx.update(|window, cx| {
+                window.draw(cx).clear(cx);
+            });
+            assert_eq!(view_of(&shell, cx), view);
+        }
     }
 }

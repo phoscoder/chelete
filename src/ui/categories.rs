@@ -191,7 +191,7 @@ impl CategoriesScreen {
     }
 }
 
-pub fn parse_hex(value: &str) -> Option<Hsla> {
+pub(super) fn parse_hex(value: &str) -> Option<Hsla> {
     let hex = value.trim().trim_start_matches('#');
     if hex.len() != 6 {
         return None;

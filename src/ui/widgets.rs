@@ -318,3 +318,20 @@ pub fn cell(width: Option<f32>, child: impl IntoElement) -> Div {
         None => base.flex_1().child(child),
     }
 }
+
+/// Previous / range / Next, for lists with a fixed page size.
+pub fn simple_pager(
+    pager: Pager,
+    on_prev: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    on_next: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    cx: &App,
+) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .justify_end()
+        .gap(rems(0.75))
+        .child(button("pager-prev", "Previous", ButtonVariant::Outline, cx).disabled(!pager.has_prev()).on_click(on_prev))
+        .child(dim(pager.label(), cx))
+        .child(button("pager-next", "Next", ButtonVariant::Outline, cx).disabled(!pager.has_next()).on_click(on_next))
+}

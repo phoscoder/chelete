@@ -144,6 +144,7 @@ impl CsvImportDialog {
         }
     }
 
+    #[cfg(test)]
     pub fn stage(&self) -> Stage {
         self.stage
     }

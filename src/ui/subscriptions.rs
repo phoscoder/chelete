@@ -13,7 +13,7 @@ use chelete_lib::subscriptions::{filter_by_frequency, frequency_label, next_paym
 use gpui_kit::base::input::InputState;
 use gpui_kit::component::date_picker::{DatePicker, DatePickerState};
 use gpui_kit::{
-    div, prelude::*, px, rems, Context, Div, Entity, EventEmitter, IntoElement, Render,
+    div, prelude::*, px, rems, Context, Entity, EventEmitter, IntoElement, Render,
     SharedString, Subscription as GpuiSubscription, Window,
 };
 use gpui_omarchy::{
@@ -101,6 +101,7 @@ impl SubscriptionsScreen {
         cx.notify();
     }
 
+    #[cfg(test)]
     pub fn subscriptions(&self) -> &[Subscription] {
         &self.subscriptions
     }

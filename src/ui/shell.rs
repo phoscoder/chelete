@@ -1,6 +1,7 @@
 use super::accounts::AccountsScreen;
 use super::categories::CategoriesScreen;
 use super::settings;
+use super::subscriptions::SubscriptionsScreen;
 use super::overview::{self, OverviewData};
 use super::widgets::ScreenEvent;
 use super::palette::{Command, Palette, PaletteEvent};
@@ -24,6 +25,7 @@ pub struct Shell {
     overview: OverviewData,
     accounts: Entity<AccountsScreen>,
     categories: Entity<CategoriesScreen>,
+    subscriptions: Entity<SubscriptionsScreen>,
     toast: Option<(u64, String, bool)>,
     toast_seq: u64,
     palette: Option<Entity<Palette>>,
@@ -45,10 +47,13 @@ impl Shell {
         cx.subscribe(&accounts, Self::on_screen_event).detach();
         let categories = cx.new(|_| CategoriesScreen::new(db.clone()));
         cx.subscribe(&categories, Self::on_screen_event).detach();
+        let subscriptions = cx.new(|cx| SubscriptionsScreen::new(db.clone(), window, cx));
+        cx.subscribe(&subscriptions, Self::on_screen_event).detach();
         Self {
             overview: OverviewData::load(&db),
             accounts,
             categories,
+            subscriptions,
             toast: None,
             toast_seq: 0,
             db,
@@ -76,6 +81,7 @@ impl Shell {
             View::Overview => self.overview = OverviewData::load(&self.db),
             View::Accounts => self.accounts.update(cx, |s, cx| s.reload(cx)),
             View::Categories => self.categories.update(cx, |s, cx| s.reload(cx)),
+            View::Subscriptions => self.subscriptions.update(cx, |s, cx| s.reload(cx)),
             _ => {}
         }
         cx.notify();
@@ -155,7 +161,11 @@ impl Shell {
                 self.categories.update(cx, |s, cx| s.open_add(window, cx));
                 return;
             }
-            Command::AddSubscription => View::Subscriptions,
+            Command::AddSubscription => {
+                self.navigate(View::Subscriptions, window, cx);
+                self.subscriptions.update(cx, |s, cx| s.open_add(window, cx));
+                return;
+            }
         };
         self.navigate(target, window, cx);
     }
@@ -174,6 +184,7 @@ impl Render for Shell {
             View::Overview => overview::render(&self.overview, cx).into_any_element(),
             View::Accounts => self.accounts.clone().into_any_element(),
             View::Categories => self.categories.clone().into_any_element(),
+            View::Subscriptions => self.subscriptions.clone().into_any_element(),
             View::Settings => settings::render(cx).into_any_element(),
             other => placeholder(other, cx).into_any_element(),
         };

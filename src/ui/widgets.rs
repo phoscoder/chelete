@@ -55,7 +55,7 @@ pub fn modal(
     body: impl IntoElement,
     on_dismiss: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
     cx: &App,
-) -> impl IntoElement {
+) -> gpui_kit::Stateful<Div> {
     let t = cx.omarchy();
     div()
         .id("modal-backdrop")
@@ -159,4 +159,138 @@ pub fn account_type_options() -> Vec<(String, String)> {
     .into_iter()
     .map(|(v, l)| (v.to_string(), l.to_string()))
     .collect()
+}
+
+// ── lists ───────────────────────────────────────────────────────────
+
+use chelete_lib::paging::{Pager, PER_PAGE_OPTIONS};
+use gpui_kit::base::CheckboxState;
+use gpui_kit::{ClickEvent, EventEmitter};
+use gpui_kit::base::Checkbox;
+use gpui_omarchy::{button, checkbox, select, ButtonVariant};
+
+pub fn check(
+    id: impl Into<gpui_kit::ElementId>,
+    label: &str,
+    state: CheckboxState,
+    on_toggle: impl Fn(&mut Window, &mut App) + 'static,
+    cx: &App,
+) -> Checkbox {
+    checkbox(id, label.to_string(), state, cx)
+        .on_change(move |_, _: &ClickEvent, window, cx| on_toggle(window, cx))
+}
+
+pub fn per_page_choice<V: 'static>(current: usize, window: &mut Window, cx: &mut Context<V>) -> Entity<ChoiceState> {
+    choice(
+        PER_PAGE_OPTIONS.iter().map(|n| (n.to_string(), n.to_string())).collect(),
+        Some(&current.to_string()),
+        window,
+        cx,
+    )
+}
+
+/// "Show [25] per page            Previous  1–25 of 61  Next"
+pub fn pagination_bar(
+    pager: Pager,
+    per_page: &Entity<ChoiceState>,
+    on_prev: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    on_next: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    window: &mut Window,
+    cx: &mut App,
+) -> Div {
+    let t = cx.omarchy().clone();
+    div()
+        .flex()
+        .items_center()
+        .justify_between()
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap(rems(0.5))
+                .child(div().text_color(t.secondary).child("Show"))
+                .child(div().w(rems(5.)).child(select("per-page", per_page, window, cx)))
+                .child(div().text_color(t.secondary).child("per page")),
+        )
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap(rems(0.75))
+                .child(
+                    button("page-prev", "Previous", ButtonVariant::Outline, cx)
+                        .disabled(!pager.has_prev())
+                        .on_click(on_prev),
+                )
+                .child(div().text_color(t.secondary).child(pager.label()))
+                .child(
+                    button("page-next", "Next", ButtonVariant::Outline, cx)
+                        .disabled(!pager.has_next())
+                        .on_click(on_next),
+                ),
+        )
+}
+
+pub fn selection_state(selected_on_page: usize, page_len: usize) -> CheckboxState {
+    if page_len > 0 && selected_on_page == page_len {
+        CheckboxState::Checked
+    } else if selected_on_page > 0 {
+        CheckboxState::Indeterminate
+    } else {
+        CheckboxState::Unchecked
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConfirmEvent {
+    Confirm,
+    Cancel,
+}
+
+/// A yes/no dialog for destructive actions.
+pub struct ConfirmDialog {
+    title: SharedString,
+    message: SharedString,
+    confirm_label: SharedString,
+}
+
+impl EventEmitter<ConfirmEvent> for ConfirmDialog {}
+
+impl ConfirmDialog {
+    pub fn new(title: impl Into<SharedString>, message: impl Into<SharedString>, confirm_label: impl Into<SharedString>) -> Self {
+        Self { title: title.into(), message: message.into(), confirm_label: confirm_label.into() }
+    }
+}
+
+impl Render for ConfirmDialog {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(rems(1.))
+            .child(div().text_color(cx.omarchy().secondary).child(self.message.clone()))
+            .child(
+                div()
+                    .flex()
+                    .justify_end()
+                    .gap(rems(0.5))
+                    .child(
+                        button("confirm-cancel", "Cancel", ButtonVariant::Outline, cx)
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Cancel))),
+                    )
+                    .child(
+                        button("confirm-ok", self.confirm_label.clone(), ButtonVariant::Danger, cx)
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Confirm))),
+                    ),
+            );
+        modal(&self.title, body, cx.listener(|_, _, _, cx| cx.emit(ConfirmEvent::Cancel)), cx)
+    }
+}
+
+pub fn plural(count: usize, singular: &str) -> String {
+    if count == 1 {
+        format!("{count} {singular}")
+    } else {
+        format!("{count} {singular}s")
+    }
 }

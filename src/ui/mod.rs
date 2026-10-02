@@ -9,6 +9,7 @@ mod placeholder;
 mod shell;
 mod settings;
 mod sidebar;
+mod subscriptions;
 mod theme_bridge;
 mod widgets;
 

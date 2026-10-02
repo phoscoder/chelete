@@ -3,6 +3,7 @@ pub mod database;
 pub mod date_filter;
 pub mod format;
 pub mod import;
+pub mod overview;
 pub mod paging;
 pub mod prefs;
 pub mod projection;

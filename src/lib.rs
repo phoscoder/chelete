@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod database;
+pub mod date_filter;
 pub mod format;
 pub mod import;
 pub mod paging;

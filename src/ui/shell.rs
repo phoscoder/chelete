@@ -225,6 +225,9 @@ impl Render for Shell {
             .bg(t.background)
             .text_color(t.foreground)
             .font_family(t.font.clone())
+            // Everything not sized explicitly (tables, lists, labels) inherits the
+            // same 12px base the Omarchy controls use.
+            .text_size(rems(0.75))
             .child(sidebar(self, cx))
             .child(div().flex_1().min_w_0().h_full().child(content))
             .when_some(self.palette.clone(), |el, palette| el.child(palette))

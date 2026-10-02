@@ -56,6 +56,17 @@ pub fn modal(
     on_dismiss: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
     cx: &App,
 ) -> gpui_kit::Stateful<Div> {
+    modal_sized(26., title, body, on_dismiss, cx)
+}
+
+/// Like [`modal`] with an explicit width in rems.
+pub fn modal_sized(
+    width: f32,
+    title: &str,
+    body: impl IntoElement,
+    on_dismiss: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    cx: &App,
+) -> gpui_kit::Stateful<Div> {
     let t = cx.omarchy();
     div()
         .id("modal-backdrop")
@@ -72,7 +83,7 @@ pub fn modal(
         .child(
             div()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .w(rems(26.))
+                .w(rems(width))
                 .max_w_full()
                 .max_h_full()
                 .flex()

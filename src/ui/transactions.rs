@@ -1,4 +1,5 @@
 use super::accounts::FormEvent;
+use super::csv_import::{CsvImportDialog, CsvImportEvent};
 use super::date_field;
 use super::date_filter_control::DateFilterControl;
 use super::icons::category_icon;
@@ -30,6 +31,7 @@ enum Dialog {
     View(Transaction),
     Confirm(Entity<ConfirmDialog>, Vec<String>),
     Export(Entity<ExportDialog>),
+    Import(Entity<CsvImportDialog>),
 }
 
 pub struct TransactionsScreen {
@@ -43,6 +45,7 @@ pub struct TransactionsScreen {
     page: usize,
     selected: HashSet<String>,
     dialog: Option<Dialog>,
+    mappings_path: PathBuf,
     _dialog_sub: Option<Subscription>,
     _subs: Vec<Subscription>,
 }
@@ -76,6 +79,7 @@ impl TransactionsScreen {
             page: 1,
             selected: HashSet::new(),
             dialog: None,
+            mappings_path: chelete_lib::import::session::SavedMappings::default_path(),
             _dialog_sub: None,
             _subs: subs,
         };
@@ -186,6 +190,27 @@ impl TransactionsScreen {
         }
     }
 
+    /// Open the CSV import dialog and ask for a file straight away.
+    pub fn open_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let dialog = self.new_import_dialog(window, cx);
+        dialog.update(cx, |d, cx| d.choose_file(window, cx));
+    }
+
+    fn new_import_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<CsvImportDialog> {
+        let dialog = cx.new(|cx| {
+            CsvImportDialog::new(self.db.clone(), self.accounts.clone(), self.categories.clone(), self.mappings_path.clone(), window, cx)
+        });
+        self._dialog_sub = Some(cx.subscribe(&dialog, |this, _, event: &CsvImportEvent, cx| {
+            if matches!(event, CsvImportEvent::Done) {
+                this.load();
+            }
+            this.close_dialog(cx);
+        }));
+        self.dialog = Some(Dialog::Import(dialog.clone()));
+        cx.notify();
+        dialog
+    }
+
     pub fn open_export(&mut self, cx: &mut Context<Self>) {
         let data = match commands::export_data(&self.db) {
             Ok(d) => d,
@@ -270,7 +295,7 @@ impl Render for TransactionsScreen {
                 .child(
                     button("import-csv", "Import CSV", ButtonVariant::Outline, cx)
                         .child(icon(IconName::Upload).size(rems(0.875)))
-                        .on_click(cx.listener(|_, _, _, cx| cx.emit(ScreenEvent::error("CSV import is not available yet")))),
+                        .on_click(cx.listener(|this, _, window, cx| this.open_import(window, cx))),
                 )
                 .child(
                     button("export-data", "Export Data", ButtonVariant::Outline, cx)
@@ -384,6 +409,7 @@ impl Render for TransactionsScreen {
             Dialog::Form(f) => f.clone().into_any_element(),
             Dialog::Confirm(c, _) => c.clone().into_any_element(),
             Dialog::Export(e) => e.clone().into_any_element(),
+            Dialog::Import(i) => i.clone().into_any_element(),
             Dialog::View(tx) => self.view_dialog(tx, cx).into_any_element(),
         });
         let filter_row = self.date_filter.render(today, window, cx);

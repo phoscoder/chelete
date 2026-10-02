@@ -1,6 +1,7 @@
 //! GPUI front end: app shell, sidebar, command palette and screens.
 mod accounts;
 mod categories;
+mod csv_import;
 mod date_field;
 mod date_filter_control;
 mod icons;

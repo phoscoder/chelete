@@ -166,7 +166,11 @@ impl Shell {
                 self.transactions.update(cx, |s, cx| s.open_add(window, cx));
                 return;
             }
-            Command::ImportTransactions => View::Transactions,
+            Command::ImportTransactions => {
+                self.navigate(View::Transactions, window, cx);
+                self.transactions.update(cx, |s, cx| s.open_import(window, cx));
+                return;
+            }
             Command::AddAccount => {
                 self.navigate(View::Accounts, window, cx);
                 self.accounts.update(cx, |s, cx| s.open_add(window, cx));

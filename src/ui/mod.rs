@@ -1,6 +1,7 @@
 //! GPUI front end: app shell, sidebar, command palette and screens.
 mod accounts;
 mod categories;
+mod date_field;
 mod icons;
 mod overview;
 mod palette;
@@ -8,6 +9,7 @@ mod placeholder;
 mod shell;
 mod settings;
 mod sidebar;
+mod theme_bridge;
 mod widgets;
 
 #[cfg(test)]
@@ -100,6 +102,11 @@ impl View {
 /// so text inputs keep their own Ctrl+A / Ctrl+C / Ctrl+S behavior.
 pub const SHELL_CONTEXT: &str = "Shell";
 pub const PALETTE_CONTEXT: &str = "Palette";
+
+pub fn install(cx: &mut App) {
+    bind_keys(cx);
+    theme_bridge::install(cx);
+}
 
 pub fn bind_keys(cx: &mut App) {
     let shell = Some(SHELL_CONTEXT);

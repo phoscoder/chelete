@@ -27,6 +27,6 @@ pub fn init(cx: &mut TestAppContext) {
         // Applying a fixed theme stops the filesystem watcher, which the
         // deterministic test scheduler rejects.
         gpui_omarchy::Theme::tokyo_night().apply(cx);
-        super::bind_keys(cx);
+        super::install(cx);
     });
 }

@@ -15,7 +15,7 @@ fn main() {
         .run(move |cx| {
             gpui_kit::init(cx);
             gpui_omarchy::init(cx);
-            ui::bind_keys(cx);
+            ui::install(cx);
             cx.on_action(|_: &ui::Quit, cx| cx.quit());
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {

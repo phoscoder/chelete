@@ -8,8 +8,8 @@ if [[ "$VERSION_BUMP" != "patch" && "$VERSION_BUMP" != "minor" && "$VERSION_BUMP
     exit 1
 fi
 
-# Get current version from package.json
-CURRENT=$(node -p "require('./package.json').version")
+# Current version from the package table in Cargo.toml.
+CURRENT=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
 case "$VERSION_BUMP" in
@@ -30,17 +30,12 @@ esac
 NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
 echo "Bumping version: $CURRENT -> $NEW_VERSION"
 
-# Update package.json
-sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" package.json
-
-# Update tauri.conf.json
-sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" src-tauri/tauri.conf.json
-
-# Update Cargo.toml
-sed -i "s/^version = \"$CURRENT\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
+# Update Cargo.toml (first match only: the package version) and the lockfile entry.
+sed -i "0,/^version = \"$CURRENT\"/s//version = \"$NEW_VERSION\"/" Cargo.toml
+cargo update --offline --workspace >/dev/null 2>&1 || cargo update --workspace >/dev/null
 
 # Create git commit and tag
-git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git add Cargo.toml Cargo.lock
 git commit -m "chore: release v${NEW_VERSION}"
 git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
 

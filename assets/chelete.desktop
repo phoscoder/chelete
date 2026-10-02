@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Chelete
+Comment=Keyboard-driven personal finance tracker
+Exec=chelete
+Icon=chelete
+Type=Application
+Categories=Office;Finance;
+StartupWMClass=chelete

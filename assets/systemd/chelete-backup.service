@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up Chelete to ~/Documents/chelete/backup.json
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/chelete-backup

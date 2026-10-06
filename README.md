@@ -95,13 +95,6 @@ Data lives in `~/.local/share/com.chelete.app/` (the same place earlier versions
 | `Esc` / `Enter` | Close a dialog / submit a form |
 | `Ctrl+Q` | Quit |
 
-## Special Thanks
-
-- **Victor Phos** — The Architect & QA
-- **ChatGPT** — For planning
-- **MiMo V2.5** — For implementation
-- **Kimi K2.7 Code** — For implementation
-
 ## License
 
 [MIT](LICENSE)

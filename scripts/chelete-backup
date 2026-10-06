@@ -1,0 +1,14 @@
+#!/bin/bash
+# Dump the Chelete database to ~/Documents/chelete/backup.json.
+set -euo pipefail
+db="$HOME/.local/share/com.chelete.app/chelete.db"
+out="$HOME/Documents/chelete/backup.json"
+mkdir -p "$(dirname "$out")"
+tmp="$out.tmp"
+dump() { sqlite3 -readonly -json "$db" "SELECT * FROM $1" | jq -c '. // []' ; }
+jq -n --argjson accounts "$(dump accounts)" \
+      --argjson categories "$(dump categories)" \
+      --argjson transactions "$(dump transactions)" \
+      --argjson subscriptions "$(dump subscriptions)" \
+      '{accounts: $accounts, categories: $categories, transactions: $transactions, subscriptions: $subscriptions}' > "$tmp"
+mv "$tmp" "$out"

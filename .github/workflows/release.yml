@@ -1,17 +1,72 @@
 name: Release
 
+# Every push to main (i.e. every merge) bumps the version, tags it, and
+# publishes a release with Linux and Windows builds.
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump (overrides the commit-based guess)
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  version:
+    # Skip the commit this workflow pushes itself.
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Bump version, commit and tag
+        id: bump
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+        run: |
+          # Bump level: manual input wins; otherwise look at commits since the
+          # last tag. "BREAKING"/"!:" -> major, "feat" -> minor, else patch.
+          LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          RANGE=${LAST_TAG:+$LAST_TAG..HEAD}
+          SUBJECTS=$(git log --format=%s $RANGE)
+          if [ -n "$INPUT_BUMP" ]; then
+            BUMP="$INPUT_BUMP"
+          elif echo "$SUBJECTS" | grep -qiE 'BREAKING|^[a-z]+(\(.*\))?!:'; then
+            BUMP=major
+          elif echo "$SUBJECTS" | grep -qiE '^feat(\(.*\))?:'; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          ./scripts/bump-version.sh "$BUMP"
+          git push origin HEAD:main --follow-tags
+          echo "version=$(git describe --tags --abbrev=0 | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -33,9 +88,9 @@ jobs:
       - name: Build
         run: cargo build --release --locked --bin chelete
 
-      - name: Get version from tag
+      - name: Get version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ needs.version.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Create tarball
         run: |
@@ -85,11 +140,51 @@ jobs:
           EOF
           dpkg-deb --build "$DEB_DIR"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          generate_release_notes: true
-          files: |
+          name: linux
+          path: |
             dist/*.tar.gz
             dist/*.deb
             dist/*.AppImage
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked --bin chelete
+
+      - name: Name binary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item target/release/chelete.exe "dist/chelete_${{ needs.version.outputs.version }}_windows_x86_64.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.exe
+
+  release:
+    needs: [version, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          generate_release_notes: true
+          files: artifacts/*

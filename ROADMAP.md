@@ -10,12 +10,25 @@ Features that build directly on what exists today.
   - Set monthly or custom-period budgets for expense categories.
   - Show progress bars and warnings on Overview and Categories pages.
 
+- [ ] **Ability to mark subscriptions as active/inactive**
+   - Show a green circle to mark if a subscription is active 
+   - When I edit a subscription show a dropdown to mark a subscription as active or inactive
+
 - [ ] **Subscription reminders**
   - Surface "due soon" subscriptions on the Overview dashboard.
   - One-click "Pay now" to create a real transaction from a subscription.
 
 - [ ] **Transaction search**
   - Search Recent Transactions by description, merchant, category, or amount.
+
+- [ ] **Auto calculate charges for Ecocash**
+  - For payments and tranfers done using Ecocash specify amount spend and left amount then auto calculate charges
+
+- [ ] **Protect account deletion**
+  - If a user press delete account prompt them to confirm before deletion
+
+- [ ] **Correct account amounts**
+  - Add an Edit button besides the delete account which should allow editing account amounts 
 
 ## Next
 

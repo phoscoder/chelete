@@ -388,7 +388,7 @@ pub fn submit_on_enter<V: 'static>(
 
 pub const ELEMENT_NUMBER: &str = "17";
 pub const ELEMENT_SYMBOL: &str = "Ch";
-pub const ELEMENT_NAME: &str = "Chlorine";
+pub const ELEMENT_NAME: &str = "Chelete";
 pub const ELEMENT_MASS: &str = "35.45";
 
 /// How much of the element tile to draw.
@@ -465,10 +465,10 @@ mod logo_tests {
     use super::*;
 
     #[test]
-    fn the_tile_reads_17_ch_chlorine() {
+    fn the_tile_reads_17_ch_chelete() {
         assert_eq!(ELEMENT_NUMBER, "17");
         assert_eq!(ELEMENT_SYMBOL, "Ch");
-        assert_eq!(ELEMENT_NAME, "Chlorine");
+        assert_eq!(ELEMENT_NAME, "Chelete");
         assert_eq!(ELEMENT_MASS, "35.45");
     }
 }

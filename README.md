@@ -67,6 +67,10 @@ The UI tests run the real screens headlessly with simulated keystrokes, so they 
 make build     # cargo build --release
 ```
 
+## Backups
+
+`make install-local` also installs a systemd user timer that dumps the database to `~/Documents/chelete/backup.json` every hour (needs `sqlite3` and `jq`). Check it with `systemctl --user list-timers chelete-backup`.
+
 ## Usage
 
 ```bash

@@ -34,9 +34,12 @@ echo "Bumping version: $CURRENT -> $NEW_VERSION"
 sed -i "0,/^version = \"$CURRENT\"/s//version = \"$NEW_VERSION\"/" Cargo.toml
 cargo update --offline --workspace >/dev/null 2>&1 || cargo update --workspace >/dev/null
 
+# Keep the AUR package in step with the release.
+sed -i "s/^pkgver=.*/pkgver=${NEW_VERSION}/" aur/PKGBUILD
+
 # Create git commit and tag
-git add Cargo.toml Cargo.lock
-git commit -m "chore: release v${NEW_VERSION}"
+git add Cargo.toml Cargo.lock aur/PKGBUILD
+git commit -m "chore: release v${NEW_VERSION} [skip ci]"
 git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
 
 echo ""

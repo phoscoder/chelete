@@ -1,10 +1,18 @@
-.PHONY: dev build test seed release-patch release-minor release-major aur-update clean
+.PHONY: dev build install-local test seed release-patch release-minor release-major aur-update clean
 
 dev:
 	cargo run
 
 build:
 	cargo build --release
+
+# Install the release build with its icon and launcher entry under ~/.local
+install-local: build
+	install -Dm755 target/release/chelete $(HOME)/.local/bin/chelete
+	install -Dm644 assets/icons/128x128@2x.png $(HOME)/.local/share/icons/hicolor/256x256/apps/chelete.png
+	install -Dm644 assets/chelete.desktop $(HOME)/.local/share/applications/chelete.desktop
+	-gtk-update-icon-cache -q $(HOME)/.local/share/icons/hicolor
+	-update-desktop-database $(HOME)/.local/share/applications
 
 test:
 	cargo test

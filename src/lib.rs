@@ -10,3 +10,4 @@ pub mod prefs;
 pub mod projection;
 pub mod seed;
 pub mod subscriptions;
+pub mod transaction_filter;

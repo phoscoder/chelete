@@ -36,6 +36,8 @@ pub struct CategoriesScreen {
     counts: HashMap<String, usize>,
     form: Option<Entity<CategoryForm>>,
     _form_sub: Option<Subscription>,
+    confirm: Option<(Entity<ConfirmDialog>, String)>,
+    _confirm_sub: Option<Subscription>,
 }
 
 impl EventEmitter<ScreenEvent> for CategoriesScreen {}
@@ -48,6 +50,8 @@ impl CategoriesScreen {
             counts: HashMap::new(),
             form: None,
             _form_sub: None,
+            confirm: None,
+            _confirm_sub: None,
         };
         screen.load();
         screen
@@ -104,9 +108,40 @@ impl CategoriesScreen {
         cx.notify();
     }
 
+    fn ask_delete(&mut self, id: String, cx: &mut Context<Self>) {
+        let Some(name) = self.categories().iter().find(|c| c.id == id).map(|c| c.name.clone()) else {
+            return;
+        };
+        let records = self.counts.get(&id).copied().unwrap_or(0);
+        let message = if records == 0 {
+            format!("This will permanently remove {name}. This action cannot be undone.")
+        } else {
+            format!(
+                "This will permanently remove {name}. Its {} will be kept without a category. This action cannot be undone.",
+                plural(records, "transaction")
+            )
+        };
+        let dialog = cx.new(|cx| ConfirmDialog::new("Delete category?", message, "Delete", cx));
+        self._confirm_sub = Some(cx.subscribe(&dialog, |this, _, event: &ConfirmEvent, cx| {
+            if let Some((_, id)) = this.confirm.take() {
+                if *event == ConfirmEvent::Confirm {
+                    this.delete(id, cx);
+                }
+            }
+            this._confirm_sub = None;
+            cx.notify();
+        }));
+        self.confirm = Some((dialog, id));
+        cx.notify();
+    }
+
     fn delete(&mut self, id: String, cx: &mut Context<Self>) {
+        let name = self.categories().iter().find(|c| c.id == id).map(|c| c.name.clone()).unwrap_or_default();
         match commands::delete_category(&self.db, id) {
-            Ok(()) => self.load(),
+            Ok(()) => {
+                self.load();
+                cx.emit(ScreenEvent::ok(format!("Deleted category {name}")));
+            }
             Err(e) => cx.emit(ScreenEvent::error(format!("Could not delete category: {e}"))),
         }
         cx.notify();
@@ -175,7 +210,7 @@ impl CategoriesScreen {
                                 ButtonVariant::Danger,
                                 cx,
                             )
-                            .on_click(cx.listener(move |this, _, _, cx| this.delete(id.clone(), cx))),
+                            .on_click(cx.listener(move |this, _, _, cx| this.ask_delete(id.clone(), cx))),
                         ),
                 );
             }
@@ -217,6 +252,7 @@ impl Render for CategoriesScreen {
             .child(page_header("Categories", add, cx))
             .child(div().flex().gap(rems(1.5)).child(expenses).child(income))
             .children(self.form.clone())
+            .children(self.confirm.as_ref().map(|(dialog, _)| dialog.clone()))
     }
 }
 
@@ -453,11 +489,35 @@ mod tests {
         });
     }
 
+    fn ask_delete(screen: &Entity<CategoriesScreen>, id: &str, cx: &mut VisualTestContext) -> Entity<ConfirmDialog> {
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.ask_delete(id.to_string(), cx)));
+        cx.update(|_, cx| screen.read(cx).confirm.as_ref().map(|(d, _)| d.clone()).expect("confirm dialog open"))
+    }
+
     #[gpui_kit::test]
-    fn delete_removes_category(cx: &mut TestAppContext) {
+    fn delete_asks_first_and_removes_on_confirm(cx: &mut TestAppContext) {
         let (screen, cx) = setup(cx);
         let id = cx.update(|_, cx| screen.read(cx).categories()[0].id.clone());
-        cx.update(|_, cx| screen.update(cx, |s, cx| s.delete(id.clone(), cx)));
-        cx.update(|_, cx| assert!(screen.read(cx).categories().iter().all(|c| c.id != id)));
+        let dialog = ask_delete(&screen, &id, cx);
+        cx.update(|_, cx| assert_eq!(screen.read(cx).categories().len(), 8, "nothing deleted until confirmed"));
+        cx.update(|_, cx| dialog.update(cx, |_, cx| cx.emit(ConfirmEvent::Confirm)));
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(s.confirm.is_none());
+            assert!(s.categories().iter().all(|c| c.id != id));
+        });
+    }
+
+    #[gpui_kit::test]
+    fn cancelling_the_delete_keeps_the_category(cx: &mut TestAppContext) {
+        let (screen, cx) = setup(cx);
+        let id = cx.update(|_, cx| screen.read(cx).categories()[0].id.clone());
+        let dialog = ask_delete(&screen, &id, cx);
+        cx.update(|_, cx| dialog.update(cx, |_, cx| cx.emit(ConfirmEvent::Cancel)));
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(s.confirm.is_none());
+            assert_eq!(s.categories().len(), 8);
+        });
     }
 }

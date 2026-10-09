@@ -13,6 +13,7 @@ mod settings;
 mod sidebar;
 mod subscriptions;
 mod theme_bridge;
+mod transaction_filter_control;
 mod transactions;
 mod widgets;
 

@@ -10,7 +10,7 @@ Features that build directly on what exists today.
   - Set monthly or custom-period budgets for expense categories.
   - Show progress bars and warnings on Overview and Categories pages.
 
-- [ ] **Ability to mark subscriptions as active/inactive**
+- [x] **Ability to mark subscriptions as active/inactive**
    - Show a green circle to mark if a subscription is active 
    - When I edit a subscription show a dropdown to mark a subscription as active or inactive
 

@@ -1,8 +1,9 @@
 use super::accounts::FormEvent;
 use super::csv_import::{CsvImportDialog, CsvImportEvent};
 use super::date_field;
-use super::date_filter_control::{DateFilterControl, PRESET_WIDTH};
+use super::date_filter_control::DateFilterControl;
 use super::icons::category_icon;
+use super::transaction_filter_control::TransactionFilterControl;
 use super::widgets::*;
 use chelete_lib::commands::{
     self, Account, Category, CreateTransactionRequest, ExportData, Transaction, UpdateTransactionRequest,
@@ -12,6 +13,7 @@ use chelete_lib::date_filter::is_date_in_range;
 use chelete_lib::export::ExportFormat;
 use chelete_lib::format::{format_balance, format_money, parse_cents};
 use chelete_lib::paging::{page_slice, Pager};
+use chelete_lib::transaction_filter::{self, Sort, SortKey, TransactionFilter};
 use gpui_kit::base::input::InputState;
 use gpui_kit::component::date_picker::DatePicker;
 use gpui_kit::component::date_picker::DatePickerState;
@@ -40,7 +42,8 @@ pub struct TransactionsScreen {
     accounts: Vec<Account>,
     categories: Vec<Category>,
     date_filter: DateFilterControl,
-    search: Entity<InputState>,
+    filters: TransactionFilterControl,
+    sort: Sort,
     per_page: Entity<ChoiceState>,
     applied_per_page: usize,
     page: usize,
@@ -49,6 +52,7 @@ pub struct TransactionsScreen {
     view_focus: gpui_kit::FocusHandle,
     mappings_path: PathBuf,
     _dialog_sub: Option<Subscription>,
+    _filter_subs: Vec<Subscription>,
     _subs: Vec<Subscription>,
 }
 
@@ -58,15 +62,10 @@ impl TransactionsScreen {
     pub fn new(db: Arc<DbState>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let date_filter = DateFilterControl::new(window, cx);
         let per_page = per_page_choice(25, window, cx);
-        let search = text_input("Search transactions", window, cx);
         let mut subs = date_filter.observe(cx, |this: &mut Self, cx| {
             this.page = 1;
             cx.notify();
         });
-        subs.push(cx.observe(&search, |this, _, cx| {
-            this.page = 1;
-            cx.notify();
-        }));
         subs.push(cx.observe(&per_page, |this, _, cx| {
             let n = choice_value(&this.per_page, cx).and_then(|v| v.parse().ok()).unwrap_or(this.applied_per_page);
             if n != this.applied_per_page {
@@ -75,13 +74,15 @@ impl TransactionsScreen {
             }
             cx.notify();
         }));
+        let filters = TransactionFilterControl::new(&TransactionFilter::default(), &[], &[], window, cx);
         let mut screen = Self {
             db,
             transactions: Vec::new(),
             accounts: Vec::new(),
             categories: Vec::new(),
             date_filter,
-            search,
+            filters,
+            sort: Sort::default(),
             per_page,
             applied_per_page: 25,
             page: 1,
@@ -90,10 +91,45 @@ impl TransactionsScreen {
             view_focus: cx.focus_handle(),
             mappings_path: chelete_lib::import::session::SavedMappings::default_path(),
             _dialog_sub: None,
+            _filter_subs: Vec::new(),
             _subs: subs,
         };
         screen.load();
+        screen.rebuild_filters(&TransactionFilter::default(), window, cx);
         screen
+    }
+
+    /// Recreate the search and filter controls, e.g. after the accounts or
+    /// categories changed or to clear them.
+    fn rebuild_filters(&mut self, keep: &TransactionFilter, window: &mut Window, cx: &mut Context<Self>) {
+        self.filters = TransactionFilterControl::new(keep, &self.accounts, &self.categories, window, cx);
+        self._filter_subs = self.filters.observe(cx, |this: &mut Self, cx| {
+            this.page = 1;
+            cx.notify();
+        });
+    }
+
+    fn clear_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.rebuild_filters(&TransactionFilter::default(), window, cx);
+        self.page = 1;
+        cx.notify();
+    }
+
+    fn sort_by(&mut self, key: SortKey, cx: &mut Context<Self>) {
+        self.sort = self.sort.toggled(key);
+        self.page = 1;
+        cx.notify();
+    }
+
+    /// A clickable column header showing the sort direction.
+    fn sort_header(&self, label: &str, key: SortKey, right: bool, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id(SharedString::from(format!("sort-{}", label.to_lowercase())))
+            .flex()
+            .when(right, |d| d.justify_end())
+            .cursor_pointer()
+            .child(format!("{label}{}", self.sort.arrow(key)))
+            .on_click(cx.listener(move |this, _, _, cx| this.sort_by(key, cx)))
     }
 
     fn load(&mut self) {
@@ -116,30 +152,8 @@ impl TransactionsScreen {
 
     fn filtered(&self, cx: &gpui_kit::App) -> Vec<&Transaction> {
         let (start, end) = self.date_filter.bounds(chrono::Local::now().date_naive(), cx);
-        let query = text_of(&self.search, cx).to_lowercase();
-        let terms: Vec<&str> = query.split_whitespace().collect();
-        self.transactions
-            .iter()
-            .filter(|t| is_date_in_range(&t.transaction_date, &start, &end))
-            .filter(|t| terms.is_empty() || self.matches_search(t, &terms))
-            .collect()
-    }
-
-    /// Every term has to appear in at least one of the searchable fields.
-    fn matches_search(&self, t: &Transaction, terms: &[&str]) -> bool {
-        let haystack = [
-            Some(t.description.as_str()),
-            t.merchant.as_deref(),
-            Some(t.transaction_type.as_str()),
-            self.category(&t.category_id).map(|c| c.name.as_str()),
-            self.account_name(&t.account_id),
-        ]
-        .into_iter()
-        .flatten()
-        .map(str::to_lowercase)
-        .collect::<Vec<_>>()
-        .join("\n");
-        terms.iter().all(|term| haystack.contains(term))
+        let in_range = self.transactions.iter().filter(|t| is_date_in_range(&t.transaction_date, &start, &end));
+        transaction_filter::apply(in_range, &self.filters.filter(cx), self.sort, &self.accounts, &self.categories)
     }
 
     fn pager(&self, cx: &gpui_kit::App) -> Pager {
@@ -309,8 +323,13 @@ fn short_date(iso: &str) -> String {
 
 impl Render for TransactionsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.filters.is_stale(&self.accounts, &self.categories) {
+            let keep = self.filters.filter(cx);
+            self.rebuild_filters(&keep, window, cx);
+        }
         let t = cx.omarchy().clone();
         let today = chrono::Local::now().date_naive();
+        let filtering = !self.filters.filter(cx).is_empty();
         let filtered = self.filtered(cx);
         let pager = self.pager(cx);
         let rows: Vec<Transaction> = page_slice(&filtered, &pager).iter().map(|t| (*t).clone()).collect();
@@ -360,12 +379,12 @@ impl Render for TransactionsScreen {
                     let screen = cx.entity();
                     move |_, cx| screen.update(cx, |s, cx| s.toggle_page(cx))
                 }, cx)))
-                .child(cell(Some(6.), "Date"))
-                .child(cell(None, "Description"))
+                .child(cell(Some(6.), self.sort_header("Date", SortKey::Date, false, cx)))
+                .child(cell(None, self.sort_header("Description", SortKey::Description, false, cx)))
                 .child(cell(Some(6.), "Type"))
-                .child(cell(None, "Category"))
-                .child(cell(None, "Account"))
-                .child(cell(Some(8.), div().flex().justify_end().child("Amount")))
+                .child(cell(None, self.sort_header("Category", SortKey::Category, false, cx)))
+                .child(cell(None, self.sort_header("Account", SortKey::Account, false, cx)))
+                .child(cell(Some(8.), self.sort_header("Amount", SortKey::Amount, true, cx)))
                 .child(cell(Some(7.5), ""));
             let mut list = div().flex().flex_col().border_1().border_color(t.border).child(header);
             for tx in rows {
@@ -443,19 +462,19 @@ impl Render for TransactionsScreen {
             Dialog::Import(i) => i.clone().into_any_element(),
             Dialog::View(tx) => self.view_dialog(tx, cx).into_any_element(),
         });
-        let filter_row = self
-            .date_filter
-            .render(today, window, cx)
-            .child(
-                // Stretch to the date dropdown's height so the two line up.
-                div().w(rems(PRESET_WIDTH)).self_stretch().child(
-                    input("tx-search", &self.search, window, cx)
-                        .debug_selector(|| "tx-search".into())
-                        .h_full()
-                        .py(rems(0.))
-                        .prefix(icon(IconName::Search).size(rems(0.875)).text_color(t.secondary)),
-                ),
-            );
+        let filter_row = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(rems(0.5))
+            .child(self.filters.render(window, cx))
+            .child(self.date_filter.render(today, window, cx))
+            .when(filtering, |row| {
+                row.child(
+                    button("clear-filters", "Clear", ButtonVariant::Outline, cx)
+                        .on_click(cx.listener(|this, _, window, cx| this.clear_filters(window, cx))),
+                )
+            });
 
         div()
             .id("transactions")
@@ -1087,52 +1106,96 @@ mod tests {
         cx.update(|_, cx| assert_eq!(screen.read(cx).page, 1));
     }
 
-    fn search_for(screen: &Entity<TransactionsScreen>, text: &str, cx: &mut VisualTestContext) -> Vec<Transaction> {
-        let search = cx.update(|_, cx| screen.read(cx).search.clone());
-        type_into(&search, text, cx);
-        cx.update(|_, cx| screen.read(cx).filtered(cx).into_iter().cloned().collect())
+    fn pick(state: Entity<ChoiceState>, index: usize, cx: &mut VisualTestContext) {
+        cx.update(|_, cx| state.update(cx, |c, cx| c.set_selected(Some(index), cx)));
     }
 
     #[gpui_kit::test]
-    fn search_matches_description_type_category_and_account(cx: &mut TestAppContext) {
-        let (screen, db, cx) = setup(cx);
-        let all = cx.update(|_, cx| screen.read(cx).transactions().to_vec());
-        let sample = all.iter().find(|t| t.category_id.is_some()).unwrap().clone();
-
-        let word = sample.description.split_whitespace().next().unwrap().to_uppercase();
-        let shown = search_for(&screen, &word, cx);
-        assert!(shown.iter().any(|t| t.id == sample.id), "description, case-insensitive");
-
-        let shown = search_for(&screen, "income", cx);
-        assert!(!shown.is_empty());
-        assert!(shown.len() < all.len());
-        assert_eq!(shown.len(), all.iter().filter(|t| t.transaction_type == "income").count(), "seeded descriptions do not say income");
-
-        let category = commands::get_categories(&db).unwrap().into_iter().find(|c| Some(&c.id) == sample.category_id.as_ref()).unwrap();
-        let shown = search_for(&screen, &category.name, cx);
-        assert!(shown.iter().any(|t| t.id == sample.id), "category name");
-
-        let account = commands::get_accounts(&db).unwrap().into_iter().find(|a| a.id == sample.account_id).unwrap();
-        let shown = search_for(&screen, &account.name, cx);
-        assert!(shown.iter().any(|t| t.id == sample.id), "account name");
-        assert!(shown.len() < all.len(), "other accounts are left out");
-    }
-
-    #[gpui_kit::test]
-    fn search_terms_must_all_match_and_reset_the_page(cx: &mut TestAppContext) {
-        let (screen, db, cx) = setup(cx);
-        let sample = cx.update(|_, cx| screen.read(cx).transactions()[0].clone());
-        let account = commands::get_accounts(&db).unwrap().into_iter().find(|a| a.id == sample.account_id).unwrap();
+    fn search_narrows_the_list_and_resets_to_page_one(cx: &mut TestAppContext) {
+        let (screen, _db, cx) = setup(cx);
+        let word = cx.update(|_, cx| screen.read(cx).transactions()[0].description.clone());
         cx.update(|_, cx| screen.update(cx, |s, cx| { s.page = 2; cx.notify(); }));
+        // Type for real so the input reports the change, as it does for a user.
+        let search = cx.update(|_, cx| screen.read(cx).filters.search.clone());
+        cx.update(|window, cx| search.update(cx, |s, cx| s.focus(window, cx)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_input(&word.to_uppercase());
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            let shown = s.filtered(cx);
+            assert!(!shown.is_empty() && shown.len() < 25);
+            assert!(shown.iter().any(|t| t.description == word));
+            assert_eq!(s.page, 1);
+        });
+    }
 
-        let shown = search_for(&screen, &format!("{} {}", sample.transaction_type, account.name), cx);
-        assert!(shown.iter().any(|t| t.id == sample.id));
-        let either = search_for(&screen, &sample.transaction_type, cx).len().min(search_for(&screen, &account.name, cx).len());
-        assert!(shown.len() <= either, "both terms narrow the list");
-        cx.update(|_, cx| assert_eq!(screen.read(cx).page, 1));
+    #[gpui_kit::test]
+    fn type_and_account_filters_combine(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let account = commands::get_accounts(&db).unwrap().remove(0);
+        let (kind, acct) = cx.update(|_, cx| (screen.read(cx).filters.kind.clone(), screen.read(cx).filters.account.clone()));
+        pick(kind, 2, cx); // Expense
+        pick(acct, 1, cx); // the first account
+        cx.update(|_, cx| {
+            let shown = screen.read(cx).filtered(cx);
+            assert!(!shown.is_empty());
+            assert!(shown.iter().all(|t| t.transaction_type == "expense" && t.account_id == account.id));
+        });
+    }
 
-        assert!(search_for(&screen, "zzz-no-such-thing", cx).is_empty());
-        assert_eq!(search_for(&screen, "   ", cx).len(), 25, "blank search shows everything");
+    #[gpui_kit::test]
+    fn clicking_amount_sorts_and_clicking_again_reverses(cx: &mut TestAppContext) {
+        let (screen, _db, cx) = setup(cx);
+        let amounts = |screen: &Entity<TransactionsScreen>, cx: &mut VisualTestContext| -> Vec<i64> {
+            cx.update(|_, cx| screen.read(cx).filtered(cx).iter().map(|t| signed(t)).collect())
+        };
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.sort_by(SortKey::Amount, cx)));
+        let desc = amounts(&screen, cx);
+        assert!(desc.windows(2).all(|w| w[0] >= w[1]), "largest first");
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.sort_by(SortKey::Amount, cx)));
+        let asc = amounts(&screen, cx);
+        assert!(asc.windows(2).all(|w| w[0] <= w[1]), "smallest first");
+    }
+
+    #[gpui_kit::test]
+    fn clear_resets_every_filter(cx: &mut TestAppContext) {
+        let (screen, _db, cx) = setup(cx);
+        let (search, kind) = cx.update(|_, cx| (screen.read(cx).filters.search.clone(), screen.read(cx).filters.kind.clone()));
+        type_into(&search, "zzz-no-match", cx);
+        pick(kind, 1, cx);
+        cx.update(|_, cx| assert!(screen.read(cx).filtered(cx).is_empty()));
+        cx.update(|window, cx| screen.update(cx, |s, cx| s.clear_filters(window, cx)));
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(s.filters.filter(cx).is_empty());
+            assert_eq!(s.filtered(cx).len(), 25);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn new_categories_keep_the_chosen_filters(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let account = commands::get_accounts(&db).unwrap().remove(0);
+        let acct = cx.update(|_, cx| screen.read(cx).filters.account.clone());
+        pick(acct, 1, cx);
+        commands::create_category(
+            &db,
+            chelete_lib::commands::CreateCategoryRequest {
+                name: "Pets".into(),
+                parent_id: None,
+                category_type: "expense".into(),
+                icon: None,
+                color: None,
+            },
+        )
+        .unwrap();
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.reload(cx)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(!s.filters.is_stale(&s.accounts, &s.categories), "dropdowns rebuilt");
+            assert_eq!(s.filters.filter(cx).account_id, Some(account.id.clone()), "selection kept");
+        });
     }
 
     #[gpui_kit::test]

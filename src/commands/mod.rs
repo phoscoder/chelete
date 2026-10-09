@@ -286,14 +286,40 @@ pub fn update_account(
     Ok(account)
 }
 
+/// Deletes the account along with its transactions, so they stop counting
+/// towards totals. Subscriptions billed to it are kept but unlinked.
 pub fn delete_account(state: &DbState, id: String) -> Result<(), String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute(
         "UPDATE accounts SET deleted_at = datetime('now') WHERE id = ?1",
         params![id],
     )
     .map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE transactions SET deleted_at = datetime('now') WHERE account_id = ?1 AND deleted_at IS NULL",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE subscriptions SET account_id = NULL, updated_at = datetime('now') WHERE account_id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// How many live transactions belong to an account.
+pub fn count_account_transactions(state: &DbState, id: &str) -> Result<usize, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT COUNT(*) FROM transactions WHERE account_id = ?1 AND deleted_at IS NULL",
+        params![id],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|n| n as usize)
+    .map_err(|e| e.to_string())
 }
 
 fn get_account_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Account, String> {
@@ -1751,5 +1777,70 @@ mod tests {
         let accounts_total: i64 = get_accounts(&db).unwrap().iter().map(|a| a.balance).sum();
         assert_eq!(overview.total_balance, accounts_total);
         assert!(overview.total_income > 0 && overview.total_expenses > 0);
+    }
+
+    /// The seeded account with the most transactions.
+    fn busiest_account(db: &DbState) -> String {
+        let txs = get_transactions(db).unwrap();
+        get_accounts(db)
+            .unwrap()
+            .into_iter()
+            .max_by_key(|a| txs.iter().filter(|t| t.account_id == a.id).count())
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn deleting_an_account_hides_its_transactions() {
+        let db = seeded();
+        let id = busiest_account(&db);
+        let before = get_transactions(&db).unwrap();
+        let owned = before.iter().filter(|t| t.account_id == id).count();
+        assert!(owned > 0, "seed gives the account some transactions");
+        assert_eq!(count_account_transactions(&db, &id).unwrap(), owned);
+
+        delete_account(&db, id.clone()).unwrap();
+
+        let after = get_transactions(&db).unwrap();
+        assert_eq!(after.len(), before.len() - owned);
+        assert!(after.iter().all(|t| t.account_id != id));
+        assert!(get_overview(&db).unwrap().recent_transactions.iter().all(|t| t.account_id != id));
+        assert_eq!(count_account_transactions(&db, &id).unwrap(), 0);
+    }
+
+    #[test]
+    fn deleting_an_account_keeps_its_subscriptions_unlinked() {
+        let db = seeded();
+        let id = busiest_account(&db);
+        let sub = create_subscription(
+            &db,
+            CreateSubscriptionRequest {
+                name: "Streaming".into(),
+                amount: 999,
+                currency: "USD".into(),
+                frequency: "monthly".into(),
+                category_id: None,
+                account_id: Some(id.clone()),
+                start_date: None,
+            },
+        )
+        .unwrap();
+
+        delete_account(&db, id).unwrap();
+
+        let kept = get_subscriptions(&db).unwrap().into_iter().find(|s| s.id == sub.id).expect("subscription kept");
+        assert_eq!(kept.account_id, None);
+    }
+
+    #[test]
+    fn migrations_clean_up_accounts_deleted_the_old_way() {
+        let db = seeded();
+        let id = busiest_account(&db);
+        {
+            let conn = db.0.lock().unwrap();
+            conn.execute("UPDATE accounts SET deleted_at = datetime('now') WHERE id = ?1", params![id]).unwrap();
+            crate::database::run_migrations(&conn).unwrap();
+        }
+        assert!(get_transactions(&db).unwrap().iter().all(|t| t.account_id != id));
     }
 }

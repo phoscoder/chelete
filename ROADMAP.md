@@ -18,9 +18,8 @@ Features that build directly on what exists today.
   - Surface "due soon" subscriptions on the Overview dashboard.
   - One-click "Pay now" to create a real transaction from a subscription.
 
-- [ ] **Transaction search**
+- [x] **Transaction search**
   - Search Recent Transactions by description, merchant, category, or amount.
-  - Done: description, merchant, type, category and account. Still to do: amount.
 
 - [x] **Auto calculate charges for Ecocash**
   - For payments and tranfers done using Ecocash specify amount spend and left amount then auto calculate charges

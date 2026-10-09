@@ -430,30 +430,30 @@ pub fn update_transaction(
     // Get old transaction for balance adjustment
     let old = get_transaction_by_id(&conn, &request.id)?;
 
-    if let Some(amount) = request.amount {
-        if amount != old.amount || request.transaction_type.as_deref() != Some(&old.transaction_type) {
-            // Reverse old balance change
-            let old_change = if old.transaction_type == "income" {
-                -old.amount
-            } else {
-                old.amount
-            };
-            conn.execute(
-                "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
-                params![old_change, old.account_id],
-            )
-            .map_err(|e| e.to_string())?;
+    // Moving to another account, or changing the amount or type, shifts balances.
+    let amount = request.amount.unwrap_or(old.amount);
+    let new_type = request.transaction_type.as_deref().unwrap_or(old.transaction_type.as_str());
+    let account_id = request.account_id.as_deref().unwrap_or(&old.account_id);
+    if amount != old.amount || new_type != old.transaction_type || account_id != old.account_id {
+        // Reverse old balance change
+        let old_change = if old.transaction_type == "income" {
+            -old.amount
+        } else {
+            old.amount
+        };
+        conn.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![old_change, old.account_id],
+        )
+        .map_err(|e| e.to_string())?;
 
-            // Apply new balance change
-            let new_type = request.transaction_type.as_deref().unwrap_or(old.transaction_type.as_str());
-            let new_change = if new_type == "income" { amount } else { -amount };
-            let account_id = request.account_id.as_deref().unwrap_or(&old.account_id);
-            conn.execute(
-                "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
-                params![new_change, account_id],
-            )
-            .map_err(|e| e.to_string())?;
-        }
+        // Apply new balance change
+        let new_change = if new_type == "income" { amount } else { -amount };
+        conn.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![new_change, account_id],
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Update fields
@@ -1691,6 +1691,35 @@ mod tests {
         )
         .unwrap();
         assert_eq!(balance(&db, &id), after_create - 600);
+    }
+
+    #[test]
+    fn moving_a_transaction_to_another_account_moves_its_amount() {
+        let db = seeded();
+        let accounts = get_accounts(&db).unwrap();
+        let (a, b) = (accounts[0].id.clone(), accounts[1].id.clone());
+        let t = create_transaction(&db, new_txn(&a, "expense", 1000)).unwrap();
+        let (sa, sb) = (balance(&db, &a), balance(&db, &b));
+        // The edit form sends every field, so the amount and type come back unchanged.
+        update_transaction(
+            &db,
+            UpdateTransactionRequest {
+                id: t.id.clone(),
+                account_id: Some(b.clone()),
+                category_id: None,
+                transaction_type: Some("expense".into()),
+                amount: Some(1000),
+                currency: None,
+                description: None,
+                merchant: None,
+                notes: None,
+                transaction_date: None,
+            },
+        )
+        .unwrap();
+        assert_eq!((balance(&db, &a), balance(&db, &b)), (sa + 1000, sb - 1000));
+        delete_transactions(&db, vec![t.id]).unwrap();
+        assert_eq!((balance(&db, &a), balance(&db, &b)), (sa + 1000, sb), "deleting refunds the account it is on");
     }
 
     #[test]

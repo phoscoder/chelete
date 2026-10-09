@@ -40,6 +40,7 @@ pub struct TransactionsScreen {
     accounts: Vec<Account>,
     categories: Vec<Category>,
     date_filter: DateFilterControl,
+    search: Entity<InputState>,
     per_page: Entity<ChoiceState>,
     applied_per_page: usize,
     page: usize,
@@ -57,10 +58,15 @@ impl TransactionsScreen {
     pub fn new(db: Arc<DbState>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let date_filter = DateFilterControl::new(window, cx);
         let per_page = per_page_choice(25, window, cx);
+        let search = text_input("Search description, type, category, account", window, cx);
         let mut subs = date_filter.observe(cx, |this: &mut Self, cx| {
             this.page = 1;
             cx.notify();
         });
+        subs.push(cx.observe(&search, |this, _, cx| {
+            this.page = 1;
+            cx.notify();
+        }));
         subs.push(cx.observe(&per_page, |this, _, cx| {
             let n = choice_value(&this.per_page, cx).and_then(|v| v.parse().ok()).unwrap_or(this.applied_per_page);
             if n != this.applied_per_page {
@@ -75,6 +81,7 @@ impl TransactionsScreen {
             accounts: Vec::new(),
             categories: Vec::new(),
             date_filter,
+            search,
             per_page,
             applied_per_page: 25,
             page: 1,
@@ -109,10 +116,30 @@ impl TransactionsScreen {
 
     fn filtered(&self, cx: &gpui_kit::App) -> Vec<&Transaction> {
         let (start, end) = self.date_filter.bounds(chrono::Local::now().date_naive(), cx);
+        let query = text_of(&self.search, cx).to_lowercase();
+        let terms: Vec<&str> = query.split_whitespace().collect();
         self.transactions
             .iter()
             .filter(|t| is_date_in_range(&t.transaction_date, &start, &end))
+            .filter(|t| terms.is_empty() || self.matches_search(t, &terms))
             .collect()
+    }
+
+    /// Every term has to appear in at least one of the searchable fields.
+    fn matches_search(&self, t: &Transaction, terms: &[&str]) -> bool {
+        let haystack = [
+            Some(t.description.as_str()),
+            t.merchant.as_deref(),
+            Some(t.transaction_type.as_str()),
+            self.category(&t.category_id).map(|c| c.name.as_str()),
+            self.account_name(&t.account_id),
+        ]
+        .into_iter()
+        .flatten()
+        .map(str::to_lowercase)
+        .collect::<Vec<_>>()
+        .join("\n");
+        terms.iter().all(|term| haystack.contains(term))
     }
 
     fn pager(&self, cx: &gpui_kit::App) -> Pager {
@@ -319,7 +346,7 @@ impl Render for TransactionsScreen {
         };
 
         let body = if rows.is_empty() {
-            let text = if none_at_all { "No transactions yet. Add one to get started." } else { "No transactions match the selected filters." };
+            let text = if none_at_all { "No transactions yet. Add one to get started." } else { "No transactions match the search and filters." };
             div().py(rems(3.)).flex().justify_center().text_color(t.secondary).child(text).into_any_element()
         } else {
             let header = div()
@@ -416,7 +443,15 @@ impl Render for TransactionsScreen {
             Dialog::Import(i) => i.clone().into_any_element(),
             Dialog::View(tx) => self.view_dialog(tx, cx).into_any_element(),
         });
-        let filter_row = self.date_filter.render(today, window, cx);
+        let filter_row = self
+            .date_filter
+            .render(today, window, cx)
+            .child(
+                div().w(rems(22.)).child(
+                    input("tx-search", &self.search, window, cx)
+                        .prefix(icon(IconName::Search).size(rems(0.875)).text_color(t.secondary)),
+                ),
+            );
 
         div()
             .id("transactions")
@@ -1046,6 +1081,54 @@ mod tests {
         cx.update(|_, cx| screen.update(cx, |s, cx| { s.page = 3; cx.notify(); }));
         select_filter(&screen, DateFilter::ThisYear, cx);
         cx.update(|_, cx| assert_eq!(screen.read(cx).page, 1));
+    }
+
+    fn search_for(screen: &Entity<TransactionsScreen>, text: &str, cx: &mut VisualTestContext) -> Vec<Transaction> {
+        let search = cx.update(|_, cx| screen.read(cx).search.clone());
+        type_into(&search, text, cx);
+        cx.update(|_, cx| screen.read(cx).filtered(cx).into_iter().cloned().collect())
+    }
+
+    #[gpui_kit::test]
+    fn search_matches_description_type_category_and_account(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let all = cx.update(|_, cx| screen.read(cx).transactions().to_vec());
+        let sample = all.iter().find(|t| t.category_id.is_some()).unwrap().clone();
+
+        let word = sample.description.split_whitespace().next().unwrap().to_uppercase();
+        let shown = search_for(&screen, &word, cx);
+        assert!(shown.iter().any(|t| t.id == sample.id), "description, case-insensitive");
+
+        let shown = search_for(&screen, "income", cx);
+        assert!(!shown.is_empty());
+        assert!(shown.len() < all.len());
+        assert_eq!(shown.len(), all.iter().filter(|t| t.transaction_type == "income").count(), "seeded descriptions do not say income");
+
+        let category = commands::get_categories(&db).unwrap().into_iter().find(|c| Some(&c.id) == sample.category_id.as_ref()).unwrap();
+        let shown = search_for(&screen, &category.name, cx);
+        assert!(shown.iter().any(|t| t.id == sample.id), "category name");
+
+        let account = commands::get_accounts(&db).unwrap().into_iter().find(|a| a.id == sample.account_id).unwrap();
+        let shown = search_for(&screen, &account.name, cx);
+        assert!(shown.iter().any(|t| t.id == sample.id), "account name");
+        assert!(shown.len() < all.len(), "other accounts are left out");
+    }
+
+    #[gpui_kit::test]
+    fn search_terms_must_all_match_and_reset_the_page(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let sample = cx.update(|_, cx| screen.read(cx).transactions()[0].clone());
+        let account = commands::get_accounts(&db).unwrap().into_iter().find(|a| a.id == sample.account_id).unwrap();
+        cx.update(|_, cx| screen.update(cx, |s, cx| { s.page = 2; cx.notify(); }));
+
+        let shown = search_for(&screen, &format!("{} {}", sample.transaction_type, account.name), cx);
+        assert!(shown.iter().any(|t| t.id == sample.id));
+        let either = search_for(&screen, &sample.transaction_type, cx).len().min(search_for(&screen, &account.name, cx).len());
+        assert!(shown.len() <= either, "both terms narrow the list");
+        cx.update(|_, cx| assert_eq!(screen.read(cx).page, 1));
+
+        assert!(search_for(&screen, "zzz-no-such-thing", cx).is_empty());
+        assert_eq!(search_for(&screen, "   ", cx).len(), 25, "blank search shows everything");
     }
 
     #[gpui_kit::test]

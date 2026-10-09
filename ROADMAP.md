@@ -21,7 +21,7 @@ Features that build directly on what exists today.
 - [ ] **Transaction search**
   - Search Recent Transactions by description, merchant, category, or amount.
 
-- [ ] **Auto calculate charges for Ecocash**
+- [x] **Auto calculate charges for Ecocash**
   - For payments and tranfers done using Ecocash specify amount spend and left amount then auto calculate charges
 
 - [ ] **Protect account deletion**

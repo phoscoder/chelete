@@ -177,6 +177,15 @@ jobs:
     needs: [version, build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
+      # Checkout first: it would wipe the downloaded artifacts otherwise.
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+          fetch-depth: 0
+
+      - name: Write release notes from the commits since the last release
+        run: ./scripts/release-notes.sh "v${{ needs.version.outputs.version }}" > release-notes.md
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -186,5 +195,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
-          generate_release_notes: true
+          body_path: release-notes.md
           files: artifacts/*

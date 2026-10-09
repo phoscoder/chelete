@@ -20,6 +20,7 @@ Features that build directly on what exists today.
 
 - [ ] **Transaction search**
   - Search Recent Transactions by description, merchant, category, or amount.
+  - Done: description, merchant, type, category and account. Still to do: amount.
 
 - [x] **Auto calculate charges for Ecocash**
   - For payments and tranfers done using Ecocash specify amount spend and left amount then auto calculate charges
@@ -27,7 +28,7 @@ Features that build directly on what exists today.
 - [x] **Protect account deletion**
   - If a user press delete account prompt them to confirm before deletion
 
-- [ ] **Correct account amounts**
+- [x] **Correct account amounts**
   - Add an Edit button besides the delete account which should allow editing account amounts 
 
 ## Next
@@ -51,7 +52,7 @@ Features that add more insight and automation.
 
 Bigger features and platform-level improvements.
 
-- [ ] **Export data**
+- [x] **Export data**
   - Export transactions, accounts, categories, and subscriptions to CSV/JSON.
 
 - [ ] **Backup / restore**

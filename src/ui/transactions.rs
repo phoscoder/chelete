@@ -1,7 +1,7 @@
 use super::accounts::FormEvent;
 use super::csv_import::{CsvImportDialog, CsvImportEvent};
 use super::date_field;
-use super::date_filter_control::DateFilterControl;
+use super::date_filter_control::{DateFilterControl, PRESET_WIDTH};
 use super::icons::category_icon;
 use super::widgets::*;
 use chelete_lib::commands::{
@@ -58,7 +58,7 @@ impl TransactionsScreen {
     pub fn new(db: Arc<DbState>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let date_filter = DateFilterControl::new(window, cx);
         let per_page = per_page_choice(25, window, cx);
-        let search = text_input("Search description, type, category, account", window, cx);
+        let search = text_input("Search transactions", window, cx);
         let mut subs = date_filter.observe(cx, |this: &mut Self, cx| {
             this.page = 1;
             cx.notify();
@@ -447,8 +447,12 @@ impl Render for TransactionsScreen {
             .date_filter
             .render(today, window, cx)
             .child(
-                div().w(rems(22.)).child(
+                // Stretch to the date dropdown's height so the two line up.
+                div().w(rems(PRESET_WIDTH)).self_stretch().child(
                     input("tx-search", &self.search, window, cx)
+                        .debug_selector(|| "tx-search".into())
+                        .h_full()
+                        .py(rems(0.))
                         .prefix(icon(IconName::Search).size(rems(0.875)).text_color(t.secondary)),
                 ),
             );
@@ -1129,6 +1133,15 @@ mod tests {
 
         assert!(search_for(&screen, "zzz-no-such-thing", cx).is_empty());
         assert_eq!(search_for(&screen, "   ", cx).len(), 25, "blank search shows everything");
+    }
+
+    #[gpui_kit::test]
+    fn search_box_matches_the_date_dropdown(cx: &mut TestAppContext) {
+        let (_screen, _db, cx) = setup(cx);
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let date = cx.debug_bounds("date-filter").expect("date dropdown drawn");
+        let search = cx.debug_bounds("tx-search").expect("search box drawn");
+        assert_eq!(search.size, date.size);
     }
 
     #[gpui_kit::test]

@@ -10,7 +10,7 @@ use chelete_lib::commands::{
 use chelete_lib::database::DbState;
 use chelete_lib::date_filter::is_date_in_range;
 use chelete_lib::export::ExportFormat;
-use chelete_lib::format::{format_money, parse_cents};
+use chelete_lib::format::{format_balance, format_money, parse_cents};
 use chelete_lib::paging::{page_slice, Pager};
 use gpui_kit::base::input::InputState;
 use gpui_kit::component::date_picker::DatePicker;
@@ -471,15 +471,25 @@ impl TransactionsScreen {
 
 pub struct TransactionForm {
     db: Arc<DbState>,
+    accounts: Vec<Account>,
     categories: Vec<Category>,
     editing: Option<Transaction>,
     kind: String,
     amount: Entity<InputState>,
     description: Entity<InputState>,
+    balance_left: Entity<InputState>,
     account: Entity<ChoiceState>,
     category: Entity<ChoiceState>,
     date: Entity<DatePickerState>,
     _subs: Vec<Subscription>,
+}
+
+/// What the balance left after a mobile money payment says about its fee.
+#[derive(Debug, PartialEq)]
+enum Charges {
+    Unknown,
+    Fee(i64),
+    TooHigh,
 }
 
 impl EventEmitter<FormEvent> for TransactionForm {}
@@ -511,14 +521,22 @@ impl TransactionForm {
         let amount_input = text_input_with("0.00", &amount, window, cx);
         amount_input.update(cx, |s, cx| s.focus(window, cx));
         let description_input = text_input_with("e.g. Groceries", &description, window, cx);
-        let _subs = submit_on_enter(&[&amount_input, &description_input], Self::submit, cx);
+        let balance_left = text_input_with("From the confirmation SMS", "", window, cx);
+        let account = choice(accounts.iter().map(|a| (a.id.clone(), a.name.clone())).collect(), account_id.as_deref(), window, cx);
+        let mut _subs = submit_on_enter(&[&amount_input, &description_input, &balance_left], Self::submit, cx);
+        // The charges preview depends on these, so redraw when they change.
+        _subs.push(cx.observe(&amount_input, |_, _, cx| cx.notify()));
+        _subs.push(cx.observe(&balance_left, |_, _, cx| cx.notify()));
+        _subs.push(cx.observe(&account, |_, _, cx| cx.notify()));
         Self {
             db,
+            accounts: accounts.to_vec(),
             categories: categories.to_vec(),
             kind: kind.clone(),
             amount: amount_input,
             description: description_input,
-            account: choice(accounts.iter().map(|a| (a.id.clone(), a.name.clone())).collect(), account_id.as_deref(), window, cx),
+            balance_left,
+            account,
             category: choice(category_items(categories, &kind), Some(&category_id), window, cx),
             date: date_field::single(Some(date), window, cx),
             editing,
@@ -536,6 +554,39 @@ impl TransactionForm {
         cx.notify();
     }
 
+    /// The account a new expense is paid from, when it takes mobile money
+    /// charges. Edits are left alone: the balance already includes them.
+    fn charges_account(&self, cx: &gpui_kit::App) -> Option<&Account> {
+        if self.editing.is_some() || self.kind != "expense" {
+            return None;
+        }
+        let id = choice_value(&self.account, cx)?;
+        self.accounts.iter().find(|a| a.id == id).filter(|a| commands::charges_apply(a))
+    }
+
+    fn charges(&self, cx: &gpui_kit::App) -> Charges {
+        let Some(account) = self.charges_account(cx) else { return Charges::Unknown };
+        let (Some(spent), Some(left)) = (parse_cents(&text_of(&self.amount, cx)), parse_cents(&text_of(&self.balance_left, cx))) else {
+            return Charges::Unknown;
+        };
+        match commands::charges_from_balance_left(account.balance, spent, left) {
+            Some(fee) => Charges::Fee(fee),
+            None => Charges::TooHigh,
+        }
+    }
+
+    /// An expense category for fees, when the user keeps one.
+    fn charges_category(&self) -> Option<String> {
+        self.categories
+            .iter()
+            .filter(|c| c.category_type == "expense")
+            .find(|c| {
+                let name = c.name.to_lowercase();
+                name.contains("fee") || name.contains("charge")
+            })
+            .map(|c| c.id.clone())
+    }
+
     fn submit(&mut self, cx: &mut Context<Self>) {
         let amount_text = text_of(&self.amount, cx);
         let cents = match parse_cents(&amount_text) {
@@ -544,6 +595,11 @@ impl TransactionForm {
         };
         let Some(account_id) = choice_value(&self.account, cx) else {
             return cx.emit(FormEvent::Failed("Add an account first".into()));
+        };
+        let charges = match self.charges(cx) {
+            Charges::TooHigh => return cx.emit(FormEvent::Failed("Balance left is more than the account would have after this payment".into())),
+            Charges::Fee(fee) if fee > 0 => Some(fee),
+            _ => None,
         };
         let category_id = choice_value(&self.category, cx).filter(|c| !c.is_empty());
         let description = text_of(&self.description, cx);
@@ -556,18 +612,35 @@ impl TransactionForm {
             None => commands::create_transaction(
                 &self.db,
                 CreateTransactionRequest {
-                    account_id,
+                    account_id: account_id.clone(),
                     category_id,
                     transaction_type: self.kind.clone(),
                     amount: cents,
                     currency: "USD".into(),
-                    description,
+                    description: description.clone(),
                     merchant: None,
                     notes: None,
-                    transaction_date: date,
+                    transaction_date: date.clone(),
                 },
             )
-            .map(|_| "Transaction added".to_string()),
+            .and_then(|_| match charges {
+                None => Ok("Transaction added".to_string()),
+                Some(fee) => commands::create_transaction(
+                    &self.db,
+                    CreateTransactionRequest {
+                        account_id,
+                        category_id: self.charges_category(),
+                        transaction_type: "expense".into(),
+                        amount: fee,
+                        currency: "USD".into(),
+                        description: "Ecocash charges".into(),
+                        merchant: None,
+                        notes: (!description.is_empty()).then(|| format!("Charges on: {description}")),
+                        transaction_date: date,
+                    },
+                )
+                .map(|_| format!("Transaction added with {} charges", format_balance(fee))),
+            }),
             Some(existing) => commands::update_transaction(
                 &self.db,
                 UpdateTransactionRequest {
@@ -620,6 +693,14 @@ impl Render for TransactionForm {
                     .child(field("Account", select("tx-account", &self.account, window, cx), cx))
                     .child(field("Category", select("tx-category", &self.category, window, cx), cx)),
             )
+            .children(self.charges_account(cx).map(|account| {
+                let hint = match self.charges(cx) {
+                    Charges::Unknown => dim(format!("Optional. Charges are worked out from the {} balance of {}.", account.name, format_balance(account.balance)), cx),
+                    Charges::Fee(fee) => dim(format!("Charges: {}", format_balance(fee)), cx),
+                    Charges::TooHigh => div().text_color(cx.omarchy().danger).child("More than the account would have after this payment"),
+                };
+                field("Balance left", div().flex().flex_col().gap(rems(0.25)).child(input("tx-balance-left", &self.balance_left, window, cx)).child(hint), cx)
+            }))
             .child(field("Date", DatePicker::new(&self.date).placeholder("Pick a date"), cx))
             .child(
                 div()
@@ -785,6 +866,79 @@ mod tests {
         });
         let after = commands::get_accounts(&db).unwrap().remove(0);
         assert_eq!(after.balance, account.balance - 4250);
+    }
+
+    fn add_ecocash_account(db: &DbState, balance: i64) -> Account {
+        commands::create_account(
+            db,
+            commands::CreateAccountRequest {
+                name: "Ecocash".into(),
+                account_type: "mobile_money".into(),
+                currency: "USD".into(),
+                balance,
+                color: None,
+                icon: None,
+            },
+        )
+        .unwrap()
+    }
+
+    fn open_form_on(screen: &Entity<TransactionsScreen>, account: &Account, cx: &mut VisualTestContext) -> Entity<TransactionForm> {
+        cx.update(|window, cx| screen.update(cx, |s, cx| { s.reload(cx); s.open_add(window, cx) }));
+        let form = form_of(screen, cx);
+        let index = cx.update(|_, cx| form.read(cx).accounts.iter().position(|a| a.id == account.id).unwrap());
+        let choice = cx.update(|_, cx| form.read(cx).account.clone());
+        cx.update(|_, cx| choice.update(cx, |c, cx| c.set_selected(Some(index), cx)));
+        form
+    }
+
+    #[gpui_kit::test]
+    fn ecocash_balance_left_records_the_charges(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let account = add_ecocash_account(&db, 100_00);
+        let form = open_form_on(&screen, &account, cx);
+        let (amount, description, left) = cx.update(|_, cx| {
+            let f = form.read(cx);
+            (f.amount.clone(), f.description.clone(), f.balance_left.clone())
+        });
+        type_into(&amount, "20", cx);
+        type_into(&description, "Airtime", cx);
+        type_into(&left, "79.40", cx);
+        cx.update(|_, cx| assert_eq!(form.read(cx).charges(cx), Charges::Fee(60)));
+        cx.update(|_, cx| form.update(cx, |f, cx| f.submit(cx)));
+        cx.update(|_, cx| {
+            let s = screen.read(cx);
+            assert!(!s.has_dialog());
+            let fee = s.transactions().iter().find(|t| t.description == "Ecocash charges").expect("charges recorded");
+            assert_eq!(fee.amount, 60);
+            assert_eq!(fee.account_id, account.id);
+            assert_eq!(fee.notes.as_deref(), Some("Charges on: Airtime"));
+        });
+        let after = commands::get_accounts(&db).unwrap().into_iter().find(|a| a.id == account.id).unwrap();
+        assert_eq!(after.balance, 79_40, "balance matches the SMS");
+    }
+
+    #[gpui_kit::test]
+    fn ecocash_balance_left_above_the_possible_is_rejected(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let account = add_ecocash_account(&db, 100_00);
+        let form = open_form_on(&screen, &account, cx);
+        let (amount, left) = cx.update(|_, cx| (form.read(cx).amount.clone(), form.read(cx).balance_left.clone()));
+        type_into(&amount, "20", cx);
+        type_into(&left, "90", cx);
+        cx.update(|_, cx| form.update(cx, |f, cx| f.submit(cx)));
+        cx.update(|_, cx| {
+            assert!(screen.read(cx).has_dialog());
+            assert_eq!(screen.read(cx).transactions().len(), 25);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn balance_left_is_only_offered_for_mobile_money(cx: &mut TestAppContext) {
+        let (screen, _db, cx) = setup(cx);
+        cx.update(|window, cx| screen.update(cx, |s, cx| s.open_add(window, cx)));
+        let form = form_of(&screen, cx);
+        cx.update(|_, cx| assert!(form.read(cx).charges_account(cx).is_none(), "seeded first account is a bank"));
     }
 
     #[gpui_kit::test]

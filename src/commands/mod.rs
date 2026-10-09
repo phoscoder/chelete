@@ -408,6 +408,19 @@ pub fn create_transaction(
     })
 }
 
+/// Mobile money accounts (Ecocash and friends) take a fee on payments and
+/// transfers that the confirmation SMS only reveals through the balance left.
+pub fn charges_apply(account: &Account) -> bool {
+    account.account_type == "mobile_money" || account.name.to_lowercase().contains("ecocash")
+}
+
+/// The fee taken when `spent` leaves `left` out of `balance`, or `None` when
+/// `left` is more than the payment could have left behind.
+pub fn charges_from_balance_left(balance: i64, spent: i64, left: i64) -> Option<i64> {
+    let charges = balance - spent - left;
+    (charges >= 0).then_some(charges)
+}
+
 pub fn update_transaction(
     state: &DbState,
     request: UpdateTransactionRequest,
@@ -1534,6 +1547,26 @@ mod tests {
         crate::database::run_migrations(&conn).unwrap();
         crate::seed::seed_database(&conn).unwrap();
         DbState(Mutex::new(conn))
+    }
+
+    #[test]
+    fn charges_are_what_the_balance_left_does_not_explain() {
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 79_40), Some(60));
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 80_00), Some(0));
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 81_00), None);
+    }
+
+    #[test]
+    fn charges_apply_to_mobile_money_and_ecocash_accounts() {
+        let mut account = get_accounts(&seeded()).unwrap().remove(0);
+        account.account_type = "bank".into();
+        account.name = "Checking".into();
+        assert!(!charges_apply(&account));
+        account.name = "My EcoCash".into();
+        assert!(charges_apply(&account));
+        account.name = "Wallet".into();
+        account.account_type = "mobile_money".into();
+        assert!(charges_apply(&account));
     }
 
     fn csv(name: &str, body: &str) -> String {

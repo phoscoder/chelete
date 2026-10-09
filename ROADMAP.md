@@ -24,7 +24,7 @@ Features that build directly on what exists today.
 - [x] **Auto calculate charges for Ecocash**
   - For payments and tranfers done using Ecocash specify amount spend and left amount then auto calculate charges
 
-- [ ] **Protect account deletion**
+- [x] **Protect account deletion**
   - If a user press delete account prompt them to confirm before deletion
 
 - [ ] **Correct account amounts**

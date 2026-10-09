@@ -495,6 +495,7 @@ pub struct SubscriptionForm {
     category: Entity<ChoiceState>,
     account: Entity<ChoiceState>,
     start_date: Entity<DatePickerState>,
+    status: Entity<ChoiceState>,
     _subs: Vec<GpuiSubscription>,
 }
 
@@ -515,6 +516,8 @@ impl SubscriptionForm {
         account_items.extend(accounts.iter().map(|a| (a.id.clone(), a.name.clone())));
         let frequency_items = FREQUENCIES.iter().map(|(v, l)| (v.to_string(), l.to_string())).collect();
 
+        let status = if editing.as_ref().map_or(true, |s| s.is_active) { "active" } else { "inactive" };
+        let status_items = vec![("active".to_string(), "Active".to_string()), ("inactive".to_string(), "Inactive".to_string())];
         let (name, amount, frequency, category, account, start) = match &editing {
             Some(s) => (
                 s.name.clone(),
@@ -539,6 +542,7 @@ impl SubscriptionForm {
             category: choice(category_items, Some(&category), window, cx),
             account: choice(account_items, Some(&account), window, cx),
             start_date: date_field::single(start, window, cx),
+            status: choice(status_items, Some(status), window, cx),
             _subs,
         }
     }
@@ -583,7 +587,7 @@ impl SubscriptionForm {
                     category_id: Some(category_id),
                     account_id: Some(account_id),
                     start_date: Some(start_date),
-                    is_active: None,
+                    is_active: Some(choice_value(&self.status, cx).as_deref() != Some("inactive")),
                 },
             )
             .map(|_| format!("Saved subscription {name}")),
@@ -613,6 +617,7 @@ impl Render for SubscriptionForm {
             .child(field("Category", select("sub-category", &self.category, window, cx), cx))
             .child(field("Account", select("sub-account", &self.account, window, cx), cx))
             .child(field("Start Date", DatePicker::new(&self.start_date).placeholder("Pick a date").cleanable(true), cx))
+            .children(editing.then(|| field("Status", select("sub-status", &self.status, window, cx), cx)))
             .child(
                 div()
                     .flex()
@@ -832,6 +837,29 @@ mod tests {
             assert_eq!(s.filtered().len(), 2);
             assert_eq!(total_amount(&s.filtered()), 1500);
         });
+    }
+
+    #[gpui_kit::test]
+    fn subscriptions_can_be_marked_inactive_and_active_again(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let sub = make(&db, "Gym", 3000, "monthly");
+        reload(&screen, cx);
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.set_active(&sub, false, cx)));
+        cx.update(|_, cx| assert!(!screen.read(cx).subscriptions()[0].is_active));
+
+        // The edit form starts from the saved status and can flip it back.
+        let saved = cx.update(|_, cx| screen.read(cx).subscriptions()[0].clone());
+        cx.update(|window, cx| screen.update(cx, |s, cx| s.open_form(Some(saved), window, cx)));
+        let form = form_of(&screen, cx);
+        let status = cx.update(|_, cx| {
+            let f = form.read(cx);
+            assert_eq!(choice_value(&f.status, cx).as_deref(), Some("inactive"));
+            f.status.clone()
+        });
+        // Items: active, inactive.
+        cx.update(|_, cx| status.update(cx, |c, cx| c.set_selected(Some(0), cx)));
+        cx.update(|_, cx| form.update(cx, |f, cx| f.submit(cx)));
+        cx.update(|_, cx| assert!(screen.read(cx).subscriptions()[0].is_active));
     }
 
     #[gpui_kit::test]

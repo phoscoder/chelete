@@ -13,7 +13,7 @@ use chelete_lib::subscriptions::{filter_by_frequency, frequency_label, next_paym
 use gpui_kit::base::input::InputState;
 use gpui_kit::component::date_picker::{DatePicker, DatePickerState};
 use gpui_kit::{
-    div, prelude::*, px, rems, Context, Entity, EventEmitter, IntoElement, Render,
+    div, prelude::*, px, rems, App, Context, Entity, EventEmitter, IntoElement, Render,
     SharedString, Subscription as GpuiSubscription, Window,
 };
 use gpui_omarchy::{
@@ -222,6 +222,32 @@ impl SubscriptionsScreen {
         cx.notify();
     }
 
+    fn set_active(&mut self, sub: &Subscription, active: bool, cx: &mut Context<Self>) {
+        let result = commands::update_subscription(
+            &self.db,
+            UpdateSubscriptionRequest {
+                id: sub.id.clone(),
+                name: None,
+                amount: None,
+                currency: None,
+                frequency: None,
+                category_id: None,
+                account_id: None,
+                start_date: None,
+                is_active: Some(active),
+            },
+        );
+        match result {
+            Ok(_) => {
+                self.load();
+                let state = if active { "active" } else { "inactive" };
+                cx.emit(ScreenEvent::ok(format!("Marked {} as {state}", sub.name)));
+            }
+            Err(e) => cx.emit(ScreenEvent::error(format!("Could not update subscription: {e}"))),
+        }
+        cx.notify();
+    }
+
     fn toggle(&mut self, id: &str, cx: &mut Context<Self>) {
         if !self.selected.remove(id) {
             self.selected.insert(id.to_string());
@@ -300,6 +326,7 @@ impl Render for SubscriptionsScreen {
                     let screen = cx.entity();
                     move |_, cx| screen.update(cx, |s, cx| s.toggle_page(cx))
                 }, cx)))
+                .child(cell(Some(1.5), ""))
                 .child(cell(None, "Name"))
                 .child(cell(None, "Category"))
                 .child(cell(None, "Account"))
@@ -318,7 +345,7 @@ impl Render for SubscriptionsScreen {
                 let checked = self.selected.contains(&s.id);
                 let row_id = s.id.clone();
                 let key = |prefix: &str| SharedString::from(format!("{prefix}-{}", s.id));
-                let (view, edit, pay, del) = (s.clone(), s.clone(), s.clone(), s.id.clone());
+                let (view, edit, pay, del, status) = (s.clone(), s.clone(), s.clone(), s.id.clone(), s.clone());
                 list = list.child(
                     div()
                         .flex()
@@ -331,6 +358,10 @@ impl Render for SubscriptionsScreen {
                             let screen = cx.entity();
                             move |_, cx| screen.update(cx, |s, cx| s.toggle(&row_id, cx))
                         }, cx)))
+                        .child(cell(Some(1.5), status_dot(s.is_active, cx)
+                            .id(key("status"))
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _, _, cx| this.set_active(&status, !status.is_active, cx)))))
                         .child(cell(None, s.name.clone()))
                         .child(cell(None, match &category {
                             Some(c) => div()
@@ -424,6 +455,20 @@ impl SubscriptionsScreen {
             .flex_col()
             .gap(rems(0.5))
             .child(row("Name", s.name.clone()))
+            .child(
+                div()
+                    .flex()
+                    .justify_between()
+                    .child(dim("Status", cx))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(rems(0.375))
+                            .child(status_dot(s.is_active, cx))
+                            .child(if s.is_active { "Active" } else { "Inactive" }),
+                    ),
+            )
             .child(row("Amount", format_money(s.amount)))
             .child(row("Period", frequency_label(&s.frequency)))
             .child(row("Start Date", s.start_date.clone().unwrap_or_else(|| "—".into())))
@@ -450,6 +495,7 @@ pub struct SubscriptionForm {
     category: Entity<ChoiceState>,
     account: Entity<ChoiceState>,
     start_date: Entity<DatePickerState>,
+    status: Entity<ChoiceState>,
     _subs: Vec<GpuiSubscription>,
 }
 
@@ -470,6 +516,8 @@ impl SubscriptionForm {
         account_items.extend(accounts.iter().map(|a| (a.id.clone(), a.name.clone())));
         let frequency_items = FREQUENCIES.iter().map(|(v, l)| (v.to_string(), l.to_string())).collect();
 
+        let status = if editing.as_ref().map_or(true, |s| s.is_active) { "active" } else { "inactive" };
+        let status_items = vec![("active".to_string(), "Active".to_string()), ("inactive".to_string(), "Inactive".to_string())];
         let (name, amount, frequency, category, account, start) = match &editing {
             Some(s) => (
                 s.name.clone(),
@@ -494,6 +542,7 @@ impl SubscriptionForm {
             category: choice(category_items, Some(&category), window, cx),
             account: choice(account_items, Some(&account), window, cx),
             start_date: date_field::single(start, window, cx),
+            status: choice(status_items, Some(status), window, cx),
             _subs,
         }
     }
@@ -538,7 +587,7 @@ impl SubscriptionForm {
                     category_id: Some(category_id),
                     account_id: Some(account_id),
                     start_date: Some(start_date),
-                    is_active: None,
+                    is_active: Some(choice_value(&self.status, cx).as_deref() != Some("inactive")),
                 },
             )
             .map(|_| format!("Saved subscription {name}")),
@@ -568,6 +617,7 @@ impl Render for SubscriptionForm {
             .child(field("Category", select("sub-category", &self.category, window, cx), cx))
             .child(field("Account", select("sub-account", &self.account, window, cx), cx))
             .child(field("Start Date", DatePicker::new(&self.start_date).placeholder("Pick a date").cleanable(true), cx))
+            .children(editing.then(|| field("Status", select("sub-status", &self.status, window, cx), cx)))
             .child(
                 div()
                     .flex()
@@ -583,6 +633,15 @@ impl Render for SubscriptionForm {
             cx,
         ).on_action(cx.listener(|_, _: &super::ModalCancel, _, cx| cx.emit(FormEvent::Cancel)))
     }
+}
+
+/// Green for an active subscription, yellow for an inactive one.
+fn status_dot(active: bool, cx: &App) -> gpui_kit::Div {
+    let t = cx.omarchy();
+    div()
+        .size(rems(0.625))
+        .rounded_full()
+        .bg(if active { t.success } else { t.warning })
 }
 
 #[cfg(test)]
@@ -778,6 +837,29 @@ mod tests {
             assert_eq!(s.filtered().len(), 2);
             assert_eq!(total_amount(&s.filtered()), 1500);
         });
+    }
+
+    #[gpui_kit::test]
+    fn subscriptions_can_be_marked_inactive_and_active_again(cx: &mut TestAppContext) {
+        let (screen, db, cx) = setup(cx);
+        let sub = make(&db, "Gym", 3000, "monthly");
+        reload(&screen, cx);
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.set_active(&sub, false, cx)));
+        cx.update(|_, cx| assert!(!screen.read(cx).subscriptions()[0].is_active));
+
+        // The edit form starts from the saved status and can flip it back.
+        let saved = cx.update(|_, cx| screen.read(cx).subscriptions()[0].clone());
+        cx.update(|window, cx| screen.update(cx, |s, cx| s.open_form(Some(saved), window, cx)));
+        let form = form_of(&screen, cx);
+        let status = cx.update(|_, cx| {
+            let f = form.read(cx);
+            assert_eq!(choice_value(&f.status, cx).as_deref(), Some("inactive"));
+            f.status.clone()
+        });
+        // Items: active, inactive.
+        cx.update(|_, cx| status.update(cx, |c, cx| c.set_selected(Some(0), cx)));
+        cx.update(|_, cx| form.update(cx, |f, cx| f.submit(cx)));
+        cx.update(|_, cx| assert!(screen.read(cx).subscriptions()[0].is_active));
     }
 
     #[gpui_kit::test]

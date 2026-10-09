@@ -408,6 +408,19 @@ pub fn create_transaction(
     })
 }
 
+/// Mobile money accounts (Ecocash and friends) take a fee on payments and
+/// transfers that the confirmation SMS only reveals through the balance left.
+pub fn charges_apply(account: &Account) -> bool {
+    account.account_type == "mobile_money" || account.name.to_lowercase().contains("ecocash")
+}
+
+/// The fee taken when `spent` leaves `left` out of `balance`, or `None` when
+/// `left` is more than the payment could have left behind.
+pub fn charges_from_balance_left(balance: i64, spent: i64, left: i64) -> Option<i64> {
+    let charges = balance - spent - left;
+    (charges >= 0).then_some(charges)
+}
+
 pub fn update_transaction(
     state: &DbState,
     request: UpdateTransactionRequest,
@@ -417,30 +430,30 @@ pub fn update_transaction(
     // Get old transaction for balance adjustment
     let old = get_transaction_by_id(&conn, &request.id)?;
 
-    if let Some(amount) = request.amount {
-        if amount != old.amount || request.transaction_type.as_deref() != Some(&old.transaction_type) {
-            // Reverse old balance change
-            let old_change = if old.transaction_type == "income" {
-                -old.amount
-            } else {
-                old.amount
-            };
-            conn.execute(
-                "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
-                params![old_change, old.account_id],
-            )
-            .map_err(|e| e.to_string())?;
+    // Moving to another account, or changing the amount or type, shifts balances.
+    let amount = request.amount.unwrap_or(old.amount);
+    let new_type = request.transaction_type.as_deref().unwrap_or(old.transaction_type.as_str());
+    let account_id = request.account_id.as_deref().unwrap_or(&old.account_id);
+    if amount != old.amount || new_type != old.transaction_type || account_id != old.account_id {
+        // Reverse old balance change
+        let old_change = if old.transaction_type == "income" {
+            -old.amount
+        } else {
+            old.amount
+        };
+        conn.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![old_change, old.account_id],
+        )
+        .map_err(|e| e.to_string())?;
 
-            // Apply new balance change
-            let new_type = request.transaction_type.as_deref().unwrap_or(old.transaction_type.as_str());
-            let new_change = if new_type == "income" { amount } else { -amount };
-            let account_id = request.account_id.as_deref().unwrap_or(&old.account_id);
-            conn.execute(
-                "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
-                params![new_change, account_id],
-            )
-            .map_err(|e| e.to_string())?;
-        }
+        // Apply new balance change
+        let new_change = if new_type == "income" { amount } else { -amount };
+        conn.execute(
+            "UPDATE accounts SET balance = balance + ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![new_change, account_id],
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Update fields
@@ -1536,6 +1549,26 @@ mod tests {
         DbState(Mutex::new(conn))
     }
 
+    #[test]
+    fn charges_are_what_the_balance_left_does_not_explain() {
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 79_40), Some(60));
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 80_00), Some(0));
+        assert_eq!(charges_from_balance_left(100_00, 20_00, 81_00), None);
+    }
+
+    #[test]
+    fn charges_apply_to_mobile_money_and_ecocash_accounts() {
+        let mut account = get_accounts(&seeded()).unwrap().remove(0);
+        account.account_type = "bank".into();
+        account.name = "Checking".into();
+        assert!(!charges_apply(&account));
+        account.name = "My EcoCash".into();
+        assert!(charges_apply(&account));
+        account.name = "Wallet".into();
+        account.account_type = "mobile_money".into();
+        assert!(charges_apply(&account));
+    }
+
     fn csv(name: &str, body: &str) -> String {
         let dir = std::env::temp_dir().join(format!("chelete-cmd-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -1658,6 +1691,35 @@ mod tests {
         )
         .unwrap();
         assert_eq!(balance(&db, &id), after_create - 600);
+    }
+
+    #[test]
+    fn moving_a_transaction_to_another_account_moves_its_amount() {
+        let db = seeded();
+        let accounts = get_accounts(&db).unwrap();
+        let (a, b) = (accounts[0].id.clone(), accounts[1].id.clone());
+        let t = create_transaction(&db, new_txn(&a, "expense", 1000)).unwrap();
+        let (sa, sb) = (balance(&db, &a), balance(&db, &b));
+        // The edit form sends every field, so the amount and type come back unchanged.
+        update_transaction(
+            &db,
+            UpdateTransactionRequest {
+                id: t.id.clone(),
+                account_id: Some(b.clone()),
+                category_id: None,
+                transaction_type: Some("expense".into()),
+                amount: Some(1000),
+                currency: None,
+                description: None,
+                merchant: None,
+                notes: None,
+                transaction_date: None,
+            },
+        )
+        .unwrap();
+        assert_eq!((balance(&db, &a), balance(&db, &b)), (sa + 1000, sb - 1000));
+        delete_transactions(&db, vec![t.id]).unwrap();
+        assert_eq!((balance(&db, &a), balance(&db, &b)), (sa + 1000, sb), "deleting refunds the account it is on");
     }
 
     #[test]

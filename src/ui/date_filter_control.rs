@@ -7,6 +7,9 @@ use gpui_kit::component::date_picker::{DatePicker, DatePickerState, DateRangePre
 use gpui_kit::{div, prelude::*, rems, App, Context, Div, Entity, Subscription, Window};
 use gpui_omarchy::{select, ChoiceState};
 
+/// Width of the preset dropdown, for fields that sit beside it.
+pub const PRESET_WIDTH: f32 = 13.;
+
 pub struct DateFilterControl {
     pub preset: Entity<ChoiceState>,
     pub range: Entity<DatePickerState>,
@@ -49,7 +52,7 @@ impl DateFilterControl {
             .flex()
             .items_center()
             .gap(rems(0.5))
-            .child(div().w(rems(13.)).child(select("date-filter", &self.preset, window, cx)))
+            .child(div().w(rems(PRESET_WIDTH)).debug_selector(|| "date-filter".into()).child(select("date-filter", &self.preset, window, cx)))
             .when(custom, |row| {
                 row.child(
                     div().w(rems(22.)).child(

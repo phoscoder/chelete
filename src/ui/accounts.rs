@@ -84,15 +84,20 @@ impl AccountsScreen {
         cx.notify();
     }
 
-    fn ask_delete(&mut self, account: &Account, cx: &mut Context<Self>) {
-        let dialog = cx.new(|cx| {
-            ConfirmDialog::new(
-                format!("Delete {}?", account.name),
-                "This will remove the account. Its transactions are kept. This action cannot be undone.",
-                "Delete",
-                cx,
+    fn ask_delete(&mut self, id: String, cx: &mut Context<Self>) {
+        let Some(name) = self.accounts().iter().find(|a| a.id == id).map(|a| a.name.clone()) else {
+            return;
+        };
+        let records = commands::count_account_transactions(&self.db, &id).unwrap_or(0);
+        let message = if records == 0 {
+            format!("This will permanently remove {name}. This action cannot be undone.")
+        } else {
+            format!(
+                "This will permanently remove {name} and its {}. This action cannot be undone.",
+                plural(records, "transaction")
             )
-        });
+        };
+        let dialog = cx.new(|cx| ConfirmDialog::new("Delete account?", message, "Delete", cx));
         self._dialog_sub = Some(cx.subscribe(&dialog, |this, _, event: &ConfirmEvent, cx| {
             if *event == ConfirmEvent::Confirm {
                 if let Some(Dialog::Confirm(_, id)) = this.dialog.take() {
@@ -103,16 +108,16 @@ impl AccountsScreen {
             this._dialog_sub = None;
             cx.notify();
         }));
-        self.dialog = Some(Dialog::Confirm(dialog, account.id.clone()));
+        self.dialog = Some(Dialog::Confirm(dialog, id));
         cx.notify();
     }
 
     fn delete(&mut self, id: String, cx: &mut Context<Self>) {
-        let name = self.accounts().iter().find(|a| a.id == id).map(|a| a.name.clone());
+        let name = self.accounts().iter().find(|a| a.id == id).map(|a| a.name.clone()).unwrap_or_default();
         match commands::delete_account(&self.db, id) {
             Ok(()) => {
                 self.accounts = commands::get_accounts(&self.db);
-                cx.emit(ScreenEvent::ok(format!("Deleted {}", name.unwrap_or_else(|| "account".into()))));
+                cx.emit(ScreenEvent::ok(format!("Deleted account {name}")));
             }
             Err(e) => cx.emit(ScreenEvent::error(format!("Could not delete account: {e}"))),
         }
@@ -145,7 +150,7 @@ impl Render for AccountsScreen {
                 let cards: Vec<_> = list
                     .iter()
                     .map(|a| {
-                        let account = a.clone();
+                        let id = a.id.clone();
                         let editing = a.clone();
                         panel(account_type_label(&a.account_type), cx)
                             .w(rems(16.))
@@ -166,7 +171,7 @@ impl Render for AccountsScreen {
                                     )
                                     .child(
                                         button(SharedString::from(format!("delete-account-{}", a.id)), "Delete", ButtonVariant::Danger, cx)
-                                            .on_click(cx.listener(move |this, _, _, cx| this.ask_delete(&account, cx))),
+                                            .on_click(cx.listener(move |this, _, _, cx| this.ask_delete(id.clone(), cx))),
                                     ),
                             )
                     })
@@ -515,54 +520,39 @@ mod tests {
         assert!(matches!(events.borrow().last(), Some(ScreenEvent::Toast { ok: false, .. })));
     }
 
-    #[gpui_kit::test]
-    fn delete_removes_the_account(cx: &mut TestAppContext) {
-        let (screen, cx, _) = setup(cx);
-        let id = cx.update(|_, cx| screen.read(cx).accounts()[0].id.clone());
-        cx.update(|_, cx| screen.update(cx, |s, cx| s.delete(id.clone(), cx)));
-        cx.update(|_, cx| {
-            let accounts = screen.read(cx).accounts();
-            assert_eq!(accounts.len(), 3);
-            assert!(accounts.iter().all(|a| a.id != id));
-        });
-    }
-
-    fn ask_to_delete_first(screen: &Entity<AccountsScreen>, cx: &mut VisualTestContext) -> (Account, Entity<ConfirmDialog>) {
-        let account = cx.update(|_, cx| screen.read(cx).accounts()[0].clone());
-        cx.update(|_, cx| screen.update(cx, |s, cx| s.ask_delete(&account, cx)));
-        let dialog = cx.update(|_, cx| match screen.read(cx).dialog.as_ref() {
-            Some(Dialog::Confirm(d, id)) => {
-                assert_eq!(id, &account.id);
-                d.clone()
-            }
+    fn ask_delete(screen: &Entity<AccountsScreen>, id: &str, cx: &mut VisualTestContext) -> Entity<ConfirmDialog> {
+        cx.update(|_, cx| screen.update(cx, |s, cx| s.ask_delete(id.to_string(), cx)));
+        cx.update(|_, cx| match screen.read(cx).dialog.as_ref() {
+            Some(Dialog::Confirm(d, _)) => d.clone(),
             _ => panic!("confirm dialog should be open"),
-        });
-        (account, dialog)
+        })
     }
 
     #[gpui_kit::test]
-    fn delete_asks_before_removing_the_account(cx: &mut TestAppContext) {
-        let (screen, cx, _) = setup(cx);
-        let (account, dialog) = ask_to_delete_first(&screen, cx);
+    fn delete_asks_first_and_removes_on_confirm(cx: &mut TestAppContext) {
+        let (screen, cx, events) = setup(cx);
+        let id = cx.update(|_, cx| screen.read(cx).accounts()[0].id.clone());
+        let dialog = ask_delete(&screen, &id, cx);
         cx.update(|_, cx| assert_eq!(screen.read(cx).accounts().len(), 4, "nothing deleted until confirmed"));
         cx.update(|_, cx| dialog.update(cx, |_, cx| cx.emit(ConfirmEvent::Confirm)));
         cx.update(|_, cx| {
             let s = screen.read(cx);
             assert!(!s.has_dialog());
             assert_eq!(s.accounts().len(), 3);
-            assert!(s.accounts().iter().all(|a| a.id != account.id));
+            assert!(s.accounts().iter().all(|a| a.id != id));
         });
+        assert!(matches!(events.borrow().last(), Some(ScreenEvent::Toast { ok: true, .. })));
     }
 
     #[gpui_kit::test]
-    fn cancelling_the_prompt_keeps_the_account(cx: &mut TestAppContext) {
+    fn cancelling_the_delete_keeps_the_account(cx: &mut TestAppContext) {
         let (screen, cx, _) = setup(cx);
-        let (account, dialog) = ask_to_delete_first(&screen, cx);
+        let id = cx.update(|_, cx| screen.read(cx).accounts()[0].id.clone());
+        let dialog = ask_delete(&screen, &id, cx);
         cx.update(|_, cx| dialog.update(cx, |_, cx| cx.emit(ConfirmEvent::Cancel)));
         cx.update(|_, cx| {
-            let s = screen.read(cx);
-            assert!(!s.has_dialog());
-            assert!(s.accounts().iter().any(|a| a.id == account.id));
+            assert!(!screen.read(cx).has_dialog());
+            assert_eq!(screen.read(cx).accounts().len(), 4);
         });
     }
 

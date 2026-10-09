@@ -104,6 +104,18 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         ",
     )?;
 
+    // Accounts deleted before deletes cascaded left their transactions behind.
+    conn.execute_batch(
+        "
+        UPDATE transactions SET deleted_at = datetime('now')
+        WHERE deleted_at IS NULL
+          AND account_id IN (SELECT id FROM accounts WHERE deleted_at IS NOT NULL);
+
+        UPDATE subscriptions SET account_id = NULL
+        WHERE account_id IN (SELECT id FROM accounts WHERE deleted_at IS NOT NULL);
+        ",
+    )?;
+
     Ok(())
 }
 
